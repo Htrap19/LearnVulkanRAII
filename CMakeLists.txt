@@ -13,30 +13,8 @@ endif()
 
 include(${CPM_DOWNLOAD_LOCATION})
 
-find_package(Vulkan REQUIRED)
+include_directories(Core/src)
 
-CPMAddPackage(
-    NAME Vulkan-Hpp
-    GITHUB_REPOSITORY KhronosGroup/Vulkan-Hpp
-    GIT_TAG v1.4.309
-)
+add_subdirectory(Core)
+add_subdirectory(App)
 
-CPMAddPackage(
-    NAME glfw
-    GITHUB_REPOSITORY glfw/glfw
-    GIT_TAG 3.4
-)
-
-add_executable(LearnVulkanRAII main.cpp
-        window.cpp
-        window.h
-        utils.h
-        application.cpp
-        application.h
-        graphicscontext.cpp
-        graphicscontext.h
-        layer.h
-        layerstack.cpp
-        layerstack.h
-)
-target_link_libraries(LearnVulkanRAII PRIVATE Vulkan::Vulkan Vulkan::Hpp glfw)

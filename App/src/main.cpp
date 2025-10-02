@@ -1,37 +1,7 @@
-#include <print>
-
 #include "application.h"
+#include "applayer.h"
 
-using namespace LearnVulkanRAII;
-
-class AppLayer : public Layer
-{
-public:
-    DEFINE_SMART_POINTER_HELPERS(AppLayer);
-
-public:
-    AppLayer()
-    {
-        std::println(__FUNCTION__);
-    }
-
-    virtual void onAttach() override
-    {
-        std::println(__FUNCTION__);
-    }
-
-    virtual void onDetach() override
-    {
-        std::println(__FUNCTION__);
-    }
-
-    virtual void onUpdate() override
-    {
-        std::print(".");
-    }
-};
-
-class MyApp : public Application
+class MyApp final : public Application
 {
 public:
     DEFINE_SMART_POINTER_HELPERS(MyApp);
