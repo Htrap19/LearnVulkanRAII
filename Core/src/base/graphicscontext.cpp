@@ -23,6 +23,31 @@ namespace LearnVulkanRAII
         return *m_instance;
     }
 
+    const vk::raii::PhysicalDevice& GraphicsContext::getPhysicalDevice() const
+    {
+        return *m_physicalDevice;
+    }
+
+    const vk::raii::SurfaceKHR& GraphicsContext::getSurface() const
+    {
+        return *m_surface;
+    }
+
+    const vk::raii::Device & GraphicsContext::getDevice() const
+    {
+        return *m_device;
+    }
+
+    DeviceQueueFamilyIndices GraphicsContext::getQueueFamilyIndices() const
+    {
+        return m_queueFamilyIndices;
+    }
+
+    vk::SurfaceCapabilitiesKHR GraphicsContext::getSurfaceCapabilities() const
+    {
+        return m_physicalDevice->getSurfaceCapabilitiesKHR(**m_surface);
+    }
+
     GraphicsContext::Shared GraphicsContext::create(Window* window)
     {
         return Utils::makeShared<GraphicsContext>(window);
@@ -34,6 +59,8 @@ namespace LearnVulkanRAII
         createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
+        createSwapchain();
+        createImageViews();
     }
 
     void GraphicsContext::createInstance()
@@ -135,6 +162,8 @@ namespace LearnVulkanRAII
             queueCreateInfos.push_back(queueCreateInfo);
         }
 
+        static std::vector deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
         vk::PhysicalDeviceFeatures deviceFeatures{};
         vk::DeviceCreateInfo createInfo{
             {},
@@ -142,14 +171,87 @@ namespace LearnVulkanRAII
             queueCreateInfos.data(),
             0,
             nullptr,
-            0,
-            nullptr,
+            static_cast<uint32_t>(deviceExtensions.size()),
+            deviceExtensions.data(),
             &deviceFeatures
         };
 
         m_device = m_physicalDevice->createDevice(createInfo);
         m_graphicsQueue = m_device->getQueue(graphicsQueueFamilyIndex, 0);
         m_presentQueue = m_device->getQueue(presentQueueFamilyIndex, 0);
+    }
+
+    void GraphicsContext::createSwapchain()
+    {
+        vk::SurfaceCapabilitiesKHR caps = getSurfaceCapabilities();
+
+        vk::Extent2D extent = { m_window->getWidth(), m_window->getHeight() };
+        if (caps.currentExtent.width != UINT32_MAX)
+        {
+            extent = caps.currentExtent;
+        }
+
+        uint32_t imageCount = caps.minImageCount + 1;
+        if (imageCount > 0 && imageCount > caps.maxImageCount)
+        {
+            imageCount = caps.maxImageCount;
+        }
+        vk::Format imageFormat = vk::Format::eB8G8R8A8Unorm;
+
+        vk::SwapchainCreateInfoKHR swapchainCreateInfo{
+                {},
+                **m_surface,
+                imageCount,
+                imageFormat,
+                vk::ColorSpaceKHR::eSrgbNonlinear,
+                extent,
+                1,
+                vk::ImageUsageFlagBits::eColorAttachment
+            };
+
+        auto [graphicsQueueFamilyIndex, presentQueueFamilyIndex] = m_queueFamilyIndices;
+        if (graphicsQueueFamilyIndex != presentQueueFamilyIndex)
+        {
+            uint32_t queueFamilyIndices[] = {
+                static_cast<uint32_t>(graphicsQueueFamilyIndex),
+                static_cast<uint32_t>(presentQueueFamilyIndex)
+            };
+
+            swapchainCreateInfo.imageSharingMode = vk::SharingMode::eConcurrent;
+            swapchainCreateInfo.setQueueFamilyIndices(queueFamilyIndices);
+        }
+        else
+        {
+            swapchainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
+        }
+
+        swapchainCreateInfo.preTransform = caps.currentTransform;
+        swapchainCreateInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+        swapchainCreateInfo.presentMode = vk::PresentModeKHR::eFifo;
+        swapchainCreateInfo.clipped = VK_TRUE;
+
+        m_swapchain = m_device->createSwapchainKHR(swapchainCreateInfo);
+        m_swapchainImages = m_swapchain->getImages();
+        m_swapchainImageFormat = imageFormat;
+        m_swapchainExtent = extent;
+    }
+
+    void GraphicsContext::createImageViews()
+    {
+        m_swapchainImageViews.clear();
+        for (auto& img : m_swapchainImages)
+        {
+            vk::ImageViewCreateInfo viewCreateInfo{
+                {},
+                img,
+                vk::ImageViewType::e2D,
+                m_swapchainImageFormat,
+                {},
+                { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
+            };
+
+            m_swapchainImageViews.push_back(m_device->createImageView(viewCreateInfo));
+        }
     }
 
     bool GraphicsContext::isDeviceSuitable(const vk::raii::PhysicalDevice &physicalDevice) const

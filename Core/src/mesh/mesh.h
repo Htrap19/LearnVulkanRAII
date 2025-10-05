@@ -1,0 +1,8 @@
+//
+// Created by User on 10/6/2025.
+//
+
+#ifndef LEARNVULKANRAII_MESH_H
+#define LEARNVULKANRAII_MESH_H
+
+#endif //LEARNVULKANRAII_MESH_H

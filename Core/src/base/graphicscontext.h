@@ -27,6 +27,13 @@ namespace LearnVulkanRAII
         explicit GraphicsContext(Window* window);
 
         [[nodiscard]] const vk::raii::Instance& getInstance() const;
+        [[nodiscard]] const vk::raii::PhysicalDevice& getPhysicalDevice() const;
+        [[nodiscard]] const vk::raii::SurfaceKHR& getSurface() const;
+        [[nodiscard]] const vk::raii::Device& getDevice() const;
+        DeviceQueueFamilyIndices getQueueFamilyIndices() const;
+
+        // Utility functions
+        vk::SurfaceCapabilitiesKHR getSurfaceCapabilities() const;
 
         static Shared create(Window* window);
 
@@ -37,6 +44,8 @@ namespace LearnVulkanRAII
         void createSurface();
         void pickPhysicalDevice();
         void createLogicalDevice();
+        void createSwapchain();
+        void createImageViews();
 
         bool isDeviceSuitable(const vk::raii::PhysicalDevice& physicalDevice) const;
 
@@ -52,6 +61,12 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::Queue> m_presentQueue;
 
         DeviceQueueFamilyIndices m_queueFamilyIndices;
+
+        Utils::Optional<vk::raii::SwapchainKHR> m_swapchain;
+        std::vector<vk::Image> m_swapchainImages;
+        vk::Format m_swapchainImageFormat;
+        vk::Extent2D m_swapchainExtent;
+        std::vector<vk::raii::ImageView> m_swapchainImageViews;
 
         friend class Window;
     };
