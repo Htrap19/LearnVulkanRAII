@@ -9,6 +9,8 @@
 
 #include <vector>
 
+#include "event/event.h"
+
 namespace LearnVulkanRAII
 {
     class LayerStack
@@ -33,11 +35,15 @@ namespace LearnVulkanRAII
         // - pushOverlayLater()
         // - popOverlayLater()
 
+    protected:
         virtual void onUpdate();
+        virtual void onEvent(Event& e);
 
     private:
         LayerListType m_layers;
         size_t m_layerInsertIndex = 0;
+
+        friend class Window;
     };
 } // LearnVulkanRAII
 

@@ -61,4 +61,15 @@ namespace LearnVulkanRAII
             layer->onUpdate();
         }
     }
+
+    void LayerStack::onEvent(Event &e)
+    {
+        for (auto it = m_layers.rbegin(); it != m_layers.rend(); it++)
+        {
+            if (e.handled)
+                break;
+
+            (*it)->onEvent(e);
+        }
+    }
 } // LearnVulkanRAII

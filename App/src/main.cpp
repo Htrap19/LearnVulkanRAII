@@ -1,4 +1,4 @@
-#include "application.h"
+#include "../../Core/src/base/application.h"
 #include "applayer.h"
 
 class MyApp final : public Application

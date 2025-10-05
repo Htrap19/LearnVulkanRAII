@@ -5,7 +5,11 @@
 #ifndef LEARNVULKANRAII_APPLAYER_H
 #define LEARNVULKANRAII_APPLAYER_H
 
-#include "layer.h"
+#include "base/layer.h"
+
+#include "event/windowevent.h"
+#include "event/keyevent.h"
+#include "event/mouseevent.h"
 
 using namespace LearnVulkanRAII;
 
@@ -17,10 +21,30 @@ public:
 public:
     AppLayer();
 
-    virtual void onAttach() override;
-    virtual void onDetach() override;
+    void onAttach() override;
+    void onDetach() override;
 
-    virtual void onUpdate() override;
+    void onUpdate() override;
+    void onEvent(Event& e) override;
+
+private:
+    bool onWindowResize(WindowResizeEvent& e);
+    bool onWindowMoved(WindowMovedEvent& e);
+    bool onWindowFocus(WindowFocusEvent& e);
+    bool onWindowLostFocus(WindowLostFocusEvent& e);
+    bool onWindowMaximized(WindowMaximizedEvent& e);
+    bool onWindowMinimized(WindowMinimizedEvent& e);
+    bool onWindowRestored(WindowRestoredEvent& e);
+    bool onWindowClosed(WindowCloseEvent& e);
+
+    bool onKeyPressed(KeyPressedEvent& e);
+    bool onKeyReleased(KeyReleasedEvent& e);
+    bool onKeyTyped(KeyTypedEvent& e);
+
+    bool onMouseButtonPressed(MouseButtonPressedEvent& e);
+    bool onMouseButtonReleased(MouseButtonReleasedEvent& e);
+    bool onMouseMoved(MouseMovedEvent& e);
+    bool onMouseScrolled(MouseScrolledEvent& e);
 };
 
 #endif //LEARNVULKANRAII_APPLAYER_H

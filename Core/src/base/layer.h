@@ -6,6 +6,7 @@
 #define LEARNVULKANRAII_LAYER_H
 
 #include "utils.h"
+#include "event/event.h"
 
 namespace LearnVulkanRAII
 {
@@ -22,6 +23,7 @@ namespace LearnVulkanRAII
         virtual void onDetach() {}
 
         virtual void onUpdate() {}
+        virtual void onEvent(Event& e) {}
     };
 } // LearnVulkanRAII
 

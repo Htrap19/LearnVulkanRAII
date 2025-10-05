@@ -38,9 +38,9 @@ namespace LearnVulkanRAII
 
     void GraphicsContext::createInstance()
     {
-        auto& spec = m_window->getSpecification();
+        const std::string& title = m_window->getTitle();
         vk::ApplicationInfo appInfo{
-            spec.title.c_str(),
+            title.c_str(),
             VK_MAKE_API_VERSION(0, 1, 0, 0),
             "LearnVulkanRAII Engine",
             VK_MAKE_API_VERSION(0, 1, 0, 0),

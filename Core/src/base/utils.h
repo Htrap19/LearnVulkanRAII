@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <print>
+#include <functional>
 
 namespace LearnVulkanRAII::Utils
 {
@@ -42,7 +43,7 @@ namespace LearnVulkanRAII::Utils
     {                                                                                                               \
         if (!(condition))                                                                                           \
         {                                                                                                           \
-            LOG("Assertion failed({}): {}. FILE: {}, LINE: {}", #condition, msg, __FILE__, __LINE__);      \
+            LOG("Assertion failed({}): {}. FILE: {}, LINE: {}", #condition, msg, __FILE__, __LINE__);               \
         }                                                                                                           \
     } while (false)
 
@@ -65,5 +66,9 @@ namespace LearnVulkanRAII::Utils
 #define DEFINE_SMART_POINTER_HELPERS(className) \
     DEFINE_SMART_POINTER_TYPES(className) \
     DEFINE_SMART_POINTER_FUNCS(className)
+
+#define BIT(x) (1 << x)
+
+#define EVENT_FN(func) std::bind(func, this, std::placeholders::_1)
 
 #endif //LEARNVULKANRAII_UTILS_H
