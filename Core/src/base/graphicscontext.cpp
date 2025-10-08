@@ -43,6 +43,11 @@ namespace LearnVulkanRAII
         return m_queueFamilyIndices;
     }
 
+    vk::Format GraphicsContext::getSwapchainImageFormat() const
+    {
+        return m_swapchainImageFormat;
+    }
+
     vk::SurfaceCapabilitiesKHR GraphicsContext::getSurfaceCapabilities() const
     {
         return m_physicalDevice->getSurfaceCapabilitiesKHR(**m_surface);

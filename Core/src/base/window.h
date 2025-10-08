@@ -49,6 +49,8 @@ namespace LearnVulkanRAII
         [[nodiscard]] const LayerStack& getLayerStack() const;
         [[nodiscard]] LayerStack& getLayerStack();
 
+        [[nodiscard]] GraphicsContext::Shared getGraphicsContext() const;
+
         static Unique create(const WindowSpecification& spec);
 
     protected:

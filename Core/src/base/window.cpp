@@ -76,6 +76,11 @@ namespace LearnVulkanRAII
         return m_layerStack;
     }
 
+    GraphicsContext::Shared Window::getGraphicsContext() const
+    {
+        return m_graphicsContext;
+    }
+
     void Window::onUpdate()
     {
         glm::ivec2 currWinPos;

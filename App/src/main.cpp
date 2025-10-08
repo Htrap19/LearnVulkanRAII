@@ -1,5 +1,7 @@
-#include "../../Core/src/base/application.h"
 #include "applayer.h"
+
+#include "base/application.h"
+#include "renderer/renderer.h"
 
 class MyApp final : public Application
 {
@@ -17,6 +19,7 @@ public:
 
         auto& window = createWindow(windowSpec);
         m_mainWindow = window.get(); // Not safe but will work for now
+        m_renderer = Renderer::makeShared(window->getGraphicsContext());
 
         auto& layerStack = window->getLayerStack();
 
@@ -26,6 +29,7 @@ public:
 
 private:
     Window* m_mainWindow = nullptr;
+    Renderer::Shared m_renderer;
 };
 
 Application::Unique createApplication(int argc, char* argv[])

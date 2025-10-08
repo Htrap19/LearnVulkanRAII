@@ -31,6 +31,7 @@ namespace LearnVulkanRAII
         [[nodiscard]] const vk::raii::SurfaceKHR& getSurface() const;
         [[nodiscard]] const vk::raii::Device& getDevice() const;
         DeviceQueueFamilyIndices getQueueFamilyIndices() const;
+        vk::Format getSwapchainImageFormat() const;
 
         // Utility functions
         vk::SurfaceCapabilitiesKHR getSurfaceCapabilities() const;
