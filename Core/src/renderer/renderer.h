@@ -33,6 +33,7 @@ namespace LearnVulkanRAII
         GraphicsContext::Shared m_graphicsContext;
 
         Utils::Optional<vk::raii::RenderPass> m_renderPass;
+        Utils::Optional<vk::raii::PipelineLayout> m_pipelineLayout;
         Utils::Optional<vk::raii::Pipeline> m_graphicsPipeline;
     };
 } // LearnVulkanRAII

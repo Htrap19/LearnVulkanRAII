@@ -48,6 +48,11 @@ namespace LearnVulkanRAII
         return m_swapchainImageFormat;
     }
 
+    vk::Extent2D GraphicsContext::getSwapchainExtent() const
+    {
+        return m_swapchainExtent;
+    }
+
     vk::SurfaceCapabilitiesKHR GraphicsContext::getSurfaceCapabilities() const
     {
         return m_physicalDevice->getSurfaceCapabilitiesKHR(**m_surface);

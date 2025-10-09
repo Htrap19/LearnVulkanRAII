@@ -30,11 +30,12 @@ namespace LearnVulkanRAII
         [[nodiscard]] const vk::raii::PhysicalDevice& getPhysicalDevice() const;
         [[nodiscard]] const vk::raii::SurfaceKHR& getSurface() const;
         [[nodiscard]] const vk::raii::Device& getDevice() const;
-        DeviceQueueFamilyIndices getQueueFamilyIndices() const;
-        vk::Format getSwapchainImageFormat() const;
+        [[nodiscard]] DeviceQueueFamilyIndices getQueueFamilyIndices() const;
+        [[nodiscard]] vk::Format getSwapchainImageFormat() const;
+        [[nodiscard]] vk::Extent2D getSwapchainExtent() const;
 
         // Utility functions
-        vk::SurfaceCapabilitiesKHR getSurfaceCapabilities() const;
+        [[nodiscard]] vk::SurfaceCapabilitiesKHR getSurfaceCapabilities() const;
 
         static Shared create(Window* window);
 
