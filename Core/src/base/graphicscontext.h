@@ -30,9 +30,12 @@ namespace LearnVulkanRAII
         [[nodiscard]] const vk::raii::PhysicalDevice& getPhysicalDevice() const;
         [[nodiscard]] const vk::raii::SurfaceKHR& getSurface() const;
         [[nodiscard]] const vk::raii::Device& getDevice() const;
+        [[nodiscard]] const vk::raii::SwapchainKHR& getSwapchain() const;
         [[nodiscard]] DeviceQueueFamilyIndices getQueueFamilyIndices() const;
         [[nodiscard]] vk::Format getSwapchainImageFormat() const;
         [[nodiscard]] vk::Extent2D getSwapchainExtent() const;
+
+        [[nodiscard]] const std::vector<vk::raii::ImageView>& getSwapchainImageViews() const;
 
         // Utility functions
         [[nodiscard]] vk::SurfaceCapabilitiesKHR getSurfaceCapabilities() const;

@@ -38,6 +38,11 @@ namespace LearnVulkanRAII
         return *m_device;
     }
 
+    const vk::raii::SwapchainKHR & GraphicsContext::getSwapchain() const
+    {
+        return *m_swapchain;
+    }
+
     DeviceQueueFamilyIndices GraphicsContext::getQueueFamilyIndices() const
     {
         return m_queueFamilyIndices;
@@ -51,6 +56,11 @@ namespace LearnVulkanRAII
     vk::Extent2D GraphicsContext::getSwapchainExtent() const
     {
         return m_swapchainExtent;
+    }
+
+    const std::vector<vk::raii::ImageView> & GraphicsContext::getSwapchainImageViews() const
+    {
+        return m_swapchainImageViews;
     }
 
     vk::SurfaceCapabilitiesKHR GraphicsContext::getSurfaceCapabilities() const

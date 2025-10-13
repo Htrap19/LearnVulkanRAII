@@ -45,6 +45,8 @@ add_library(LearnVulkanRAIICore STATIC
         src/renderer/renderer.h
         src/renderer/utils/utils.cpp
         src/renderer/utils/utils.h
+        src/renderer/framebuffer.cpp
+        src/renderer/framebuffer.h
 )
 
 target_link_libraries(LearnVulkanRAIICore PUBLIC

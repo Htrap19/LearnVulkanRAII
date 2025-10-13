@@ -2,6 +2,7 @@
 
 #include "base/application.h"
 #include "renderer/renderer.h"
+#include "renderer/framebuffer.h"
 
 class MyApp final : public Application
 {
@@ -20,6 +21,7 @@ public:
         auto& window = createWindow(windowSpec);
         m_mainWindow = window.get(); // Not safe but will work for now
         m_renderer = Renderer::makeShared(window->getGraphicsContext());
+        m_framebuffer = Framebuffer::makeShared(m_mainWindow->getGraphicsContext(), m_renderer->getRenderPass());
 
         auto& layerStack = window->getLayerStack();
 
@@ -30,6 +32,7 @@ public:
 private:
     Window* m_mainWindow = nullptr;
     Renderer::Shared m_renderer;
+    Framebuffer::Shared m_framebuffer;
 };
 
 Application::Unique createApplication(int argc, char* argv[])

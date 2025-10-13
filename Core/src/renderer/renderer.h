@@ -20,6 +20,8 @@ namespace LearnVulkanRAII
     public:
         explicit Renderer(const GraphicsContext::Shared& graphicsContext);
 
+        const vk::raii::RenderPass& getRenderPass() const;
+
         // TODO: Need to create a 'create' function for renderer
         // static Shared create(...);
 

@@ -14,6 +14,11 @@ namespace LearnVulkanRAII
         init();
     }
 
+    const vk::raii::RenderPass& Renderer::getRenderPass() const
+    {
+        return *m_renderPass;
+    }
+
     void Renderer::init()
     {
         createRenderPass();
