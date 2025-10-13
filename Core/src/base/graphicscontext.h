@@ -31,10 +31,11 @@ namespace LearnVulkanRAII
         [[nodiscard]] const vk::raii::SurfaceKHR& getSurface() const;
         [[nodiscard]] const vk::raii::Device& getDevice() const;
         [[nodiscard]] const vk::raii::SwapchainKHR& getSwapchain() const;
+        [[nodiscard]] const vk::raii::CommandPool& getCommandPool() const;
+
         [[nodiscard]] DeviceQueueFamilyIndices getQueueFamilyIndices() const;
         [[nodiscard]] vk::Format getSwapchainImageFormat() const;
         [[nodiscard]] vk::Extent2D getSwapchainExtent() const;
-
         [[nodiscard]] const std::vector<vk::raii::ImageView>& getSwapchainImageViews() const;
 
         // Utility functions
@@ -51,6 +52,7 @@ namespace LearnVulkanRAII
         void createLogicalDevice();
         void createSwapchain();
         void createImageViews();
+        void createCommandPool();
 
         bool isDeviceSuitable(const vk::raii::PhysicalDevice& physicalDevice) const;
 
@@ -72,6 +74,8 @@ namespace LearnVulkanRAII
         vk::Format m_swapchainImageFormat;
         vk::Extent2D m_swapchainExtent;
         std::vector<vk::raii::ImageView> m_swapchainImageViews;
+
+        Utils::Optional<vk::raii::CommandPool> m_commandPool;
 
         friend class Window;
     };

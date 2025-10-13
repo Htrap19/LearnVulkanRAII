@@ -20,7 +20,7 @@ namespace LearnVulkanRAII
     public:
         explicit Renderer(const GraphicsContext::Shared& graphicsContext);
 
-        const vk::raii::RenderPass& getRenderPass() const;
+        [[nodiscard]] const vk::raii::RenderPass& getRenderPass() const;
 
         // TODO: Need to create a 'create' function for renderer
         // static Shared create(...);
@@ -30,6 +30,7 @@ namespace LearnVulkanRAII
 
         void createRenderPass();
         void createGraphicsPipeline();
+        void allocateCommandBuffers();
 
     private:
         GraphicsContext::Shared m_graphicsContext;
@@ -37,6 +38,7 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::RenderPass> m_renderPass;
         Utils::Optional<vk::raii::PipelineLayout> m_pipelineLayout;
         Utils::Optional<vk::raii::Pipeline> m_graphicsPipeline;
+        std::vector<vk::raii::CommandBuffer> m_commandBuffers;
     };
 } // LearnVulkanRAII
 

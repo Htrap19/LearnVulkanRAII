@@ -23,6 +23,7 @@ namespace LearnVulkanRAII
     {
         createRenderPass();
         createGraphicsPipeline();
+        allocateCommandBuffers();
     }
 
     void Renderer::createRenderPass()
@@ -198,5 +199,20 @@ namespace LearnVulkanRAII
         };
 
         m_graphicsPipeline = device.createGraphicsPipeline(VK_NULL_HANDLE, graphicsPipelineCreateInfo);
+    }
+
+    void Renderer::allocateCommandBuffers()
+    {
+        auto& commandPool = m_graphicsContext->getCommandPool();
+        auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
+        auto& device = m_graphicsContext->getDevice();
+
+        vk::CommandBufferAllocateInfo allocInfo{
+            *commandPool,
+            vk::CommandBufferLevel::ePrimary,
+            static_cast<uint32_t>(swapchainImageViews.size())
+        };
+
+        m_commandBuffers = device.allocateCommandBuffers(allocInfo);
     }
 } // LearnVulkanRAII

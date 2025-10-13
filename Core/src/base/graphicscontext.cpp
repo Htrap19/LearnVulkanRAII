@@ -33,14 +33,19 @@ namespace LearnVulkanRAII
         return *m_surface;
     }
 
-    const vk::raii::Device & GraphicsContext::getDevice() const
+    const vk::raii::Device& GraphicsContext::getDevice() const
     {
         return *m_device;
     }
 
-    const vk::raii::SwapchainKHR & GraphicsContext::getSwapchain() const
+    const vk::raii::SwapchainKHR& GraphicsContext::getSwapchain() const
     {
         return *m_swapchain;
+    }
+
+    const vk::raii::CommandPool& GraphicsContext::getCommandPool() const
+    {
+        return *m_commandPool;
     }
 
     DeviceQueueFamilyIndices GraphicsContext::getQueueFamilyIndices() const
@@ -81,6 +86,7 @@ namespace LearnVulkanRAII
         createLogicalDevice();
         createSwapchain();
         createImageViews();
+        createCommandPool();
     }
 
     void GraphicsContext::createInstance()
@@ -272,6 +278,16 @@ namespace LearnVulkanRAII
 
             m_swapchainImageViews.push_back(m_device->createImageView(viewCreateInfo));
         }
+    }
+
+    void GraphicsContext::createCommandPool()
+    {
+        vk::CommandPoolCreateInfo commandPoolCreateInfo{
+            {},
+            static_cast<uint32_t>(m_queueFamilyIndices.graphicsQueueFamilyIndex)
+        };
+
+        m_commandPool = m_device->createCommandPool(commandPoolCreateInfo);
     }
 
     bool GraphicsContext::isDeviceSuitable(const vk::raii::PhysicalDevice &physicalDevice) const
