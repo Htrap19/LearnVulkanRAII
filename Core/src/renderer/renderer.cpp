@@ -24,6 +24,7 @@ namespace LearnVulkanRAII
         createRenderPass();
         createGraphicsPipeline();
         allocateCommandBuffers();
+        createSyncObjects();
     }
 
     void Renderer::createRenderPass()
@@ -214,5 +215,16 @@ namespace LearnVulkanRAII
         };
 
         m_commandBuffers = device.allocateCommandBuffers(allocInfo);
+    }
+
+    void Renderer::createSyncObjects()
+    {
+        auto& device = m_graphicsContext->getDevice();
+
+        m_imageAvailableSemaphore = device.createSemaphore({});
+        m_renderFinishedSemaphore = device.createSemaphore({});
+
+        vk::FenceCreateInfo fenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled };
+        m_inFlightFence = device.createFence(fenceCreateInfo);
     }
 } // LearnVulkanRAII

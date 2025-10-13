@@ -31,6 +31,7 @@ namespace LearnVulkanRAII
         void createRenderPass();
         void createGraphicsPipeline();
         void allocateCommandBuffers();
+        void createSyncObjects();
 
     private:
         GraphicsContext::Shared m_graphicsContext;
@@ -39,6 +40,9 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::PipelineLayout> m_pipelineLayout;
         Utils::Optional<vk::raii::Pipeline> m_graphicsPipeline;
         std::vector<vk::raii::CommandBuffer> m_commandBuffers;
+        Utils::Optional<vk::raii::Semaphore> m_imageAvailableSemaphore;
+        Utils::Optional<vk::raii::Semaphore> m_renderFinishedSemaphore;
+        Utils::Optional<vk::raii::Fence> m_inFlightFence;
     };
 } // LearnVulkanRAII
 
