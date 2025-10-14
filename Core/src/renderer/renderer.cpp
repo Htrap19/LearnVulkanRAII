@@ -8,10 +8,16 @@
 #include "renderer/utils/utils.h"
 
 // TODO: Need to remove this, and use the Mesh for drawing
-static std::vector vertices = {
-    0.0f, -0.5f,  // vertex 1 pos
-    0.5f,  0.5f,  // vertex 2 pos
-   -0.5f,  0.5f   // vertex 3 pos
+static std::vector<glm::vec3> vertices = {
+    {-0.5f, -0.5f, 0.0f}, // Bottom left  (0)
+    { 0.5f, -0.5f, 0.0f}, // Bottom right (1)
+    { 0.5f,  0.5f, 0.0f}, // Top right    (2)
+    {-0.5f,  0.5f, 0.0f}  // Top left     (3)
+};
+
+static std::vector<uint32_t> indices = {
+    0, 1, 2,   // First triangle (bottom-left to top-right)
+    2, 3, 0    // Second triangle
 };
 
 namespace LearnVulkanRAII
@@ -46,7 +52,7 @@ namespace LearnVulkanRAII
         allocateCommandBuffers();
         createSyncObjects();
 
-        createVertexBuffer();
+        createBuffers();
     }
 
     void Renderer::createRenderPass()
@@ -258,8 +264,9 @@ namespace LearnVulkanRAII
         m_inFlightFence = device.createFence(fenceCreateInfo);
     }
 
-    void Renderer::createVertexBuffer()
+    void Renderer::createBuffers()
     {
+        // vertex buffer
         vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
         m_vertexBuffer = Buffer::create(
             m_graphicsContext,
@@ -270,6 +277,19 @@ namespace LearnVulkanRAII
         void* data = m_vertexBuffer->map();
         memcpy(data, vertices.data(), bufferSize);
         m_vertexBuffer->unmap();
+        data = nullptr;
+
+        // index buffer
+        bufferSize = sizeof(indices[0]) * indices.size();
+        m_indexBuffer = Buffer::create(
+            m_graphicsContext,
+            bufferSize,
+            vk::BufferUsageFlagBits::eIndexBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        data = m_indexBuffer->map();
+        memcpy(data, indices.data(), bufferSize);
+        m_indexBuffer->unmap();
     }
 
     void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const
@@ -301,7 +321,9 @@ namespace LearnVulkanRAII
         vk::DeviceSize offsets[] = { 0 };
         cb.bindVertexBuffers(0, vertexBuffers, offsets);
 
-        cb.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+        cb.bindIndexBuffer(*m_indexBuffer->getNativeBuffer(), 0, vk::IndexType::eUint32);
+
+        cb.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
         cb.endRenderPass();
         cb.end();
@@ -333,7 +355,7 @@ namespace LearnVulkanRAII
         vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
         submitInfo.setWaitDstStageMask(waitStages);
         submitInfo.setWaitSemaphores(**m_imageAvailableSemaphore);
-        submitInfo.setCommandBuffers(*m_commandBuffers[imageIndex]);
+        submitInfo.setCommandBuffers(*cb);
         submitInfo.setSignalSemaphores(**m_renderFinishedSemaphore);
 
         graphicsQueue.submit(submitInfo, **m_inFlightFence);

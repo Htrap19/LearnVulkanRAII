@@ -39,7 +39,7 @@ namespace LearnVulkanRAII
         void allocateCommandBuffers();
         void createSyncObjects();
 
-        void createVertexBuffer();
+        void createBuffers();
         void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const;
 
         void drawFrame() const;
@@ -57,6 +57,7 @@ namespace LearnVulkanRAII
 
         Framebuffer::Shared m_framebuffer;
         Buffer::Shared m_vertexBuffer;
+        Buffer::Shared m_indexBuffer;
     };
 } // LearnVulkanRAII
 
