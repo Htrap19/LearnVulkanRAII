@@ -9,6 +9,7 @@
 #include "base/graphicscontext.h"
 
 #include "framebuffer.h"
+#include "buffer.h"
 
 #include <vulkan/vulkan_raii.hpp>
 
@@ -24,8 +25,6 @@ namespace LearnVulkanRAII
 
         void beginFrame(const Framebuffer::Shared& framebuffer);
         void endFrame();
-
-        void onUpdate();
 
         [[nodiscard]] const vk::raii::RenderPass& getRenderPass() const;
 
@@ -45,8 +44,6 @@ namespace LearnVulkanRAII
 
         void drawFrame() const;
 
-        uint32_t findMemoryType(uint32_t typeFilters, vk::MemoryPropertyFlags properties) const;
-
     private:
         GraphicsContext::Shared m_graphicsContext;
 
@@ -58,9 +55,7 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::Semaphore> m_renderFinishedSemaphore;
         Utils::Optional<vk::raii::Fence> m_inFlightFence;
 
-        // TODO: Need to move this into it's own dedicated class
-        Utils::Optional<vk::raii::Buffer> m_vertexBuffer;
-        Utils::Optional<vk::raii::DeviceMemory> m_vertexBufferMemory;
+        Buffer::Shared m_vertexBuffer;
     };
 } // LearnVulkanRAII
 

@@ -38,10 +38,6 @@ namespace LearnVulkanRAII
 
     void Renderer::endFrame()
     {
-    }
-
-    void Renderer::onUpdate()
-    {
         drawFrame();
     }
 
@@ -121,11 +117,11 @@ namespace LearnVulkanRAII
         const std::string fragmentGlslSrc = Utils::readFile("Core/resources/shaders/renderer.fragment.glsl");
 
         vk::raii::ShaderModule vertexShaderModule = Utils::createShaderModule(device,
-                                                                              vk::ShaderStageFlagBits::eVertex,
-                                                                              vertexGlslSrc);
+            vk::ShaderStageFlagBits::eVertex,
+            vertexGlslSrc);
         vk::raii::ShaderModule fragmentShaderModule = Utils::createShaderModule(device,
-                                                                                vk::ShaderStageFlagBits::eFragment,
-                                                                                fragmentGlslSrc);
+            vk::ShaderStageFlagBits::eFragment,
+            fragmentGlslSrc);
 
         vk::PipelineShaderStageCreateInfo vertexShaderStage{
             {}, vk::ShaderStageFlagBits::eVertex, vertexShaderModule, "main"
@@ -271,50 +267,16 @@ namespace LearnVulkanRAII
 
     void Renderer::createVertexBuffer()
     {
-        auto& device = m_graphicsContext->getDevice();
-
         vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-        vk::BufferCreateInfo bufferCreateInfo{
-            {},
+        m_vertexBuffer = Buffer::create(
+            m_graphicsContext,
             bufferSize,
             vk::BufferUsageFlagBits::eVertexBuffer,
-            vk::SharingMode::eExclusive
-        };
-
-        m_vertexBuffer = device.createBuffer(bufferCreateInfo);
-
-        auto memRequirements = device.getBufferMemoryRequirements({ &bufferCreateInfo });
-        uint32_t memoryType = findMemoryType(memRequirements.memoryRequirements.memoryTypeBits,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
-        vk::MemoryAllocateInfo allocInfo{
-            memRequirements.memoryRequirements.size,
-            memoryType
-        };
-        m_vertexBufferMemory = device.allocateMemory(allocInfo);
-
-        vk::BindBufferMemoryInfo bindBufferMemoryInfo{
-            **m_vertexBuffer,
-            **m_vertexBufferMemory,
-            0
-        };
-
-        device.bindBufferMemory2(bindBufferMemoryInfo);
-
-        vk::MemoryMapInfo memoryMapInfo{
-            {},
-            **m_vertexBufferMemory,
-            0,
-            bufferSize
-        };
-        void* data = device.mapMemory2(memoryMapInfo);
+        void* data = m_vertexBuffer->map();
         memcpy(data, vertices.data(), bufferSize);
-        vk::MemoryUnmapInfo memoryUnmapInfo{
-            {},
-            **m_vertexBufferMemory
-        };
-        device.unmapMemory2(memoryUnmapInfo);
+        m_vertexBuffer->unmap();
     }
 
     void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const
@@ -340,7 +302,7 @@ namespace LearnVulkanRAII
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_graphicsPipeline);
 
-        vk::Buffer vertexBuffers[] = { **m_vertexBuffer };
+        vk::Buffer vertexBuffers[] = { *m_vertexBuffer->getNativeBuffer() };
         vk::DeviceSize offsets[] = { 0 };
         cb.bindVertexBuffers(0, vertexBuffers, offsets);
 
@@ -382,20 +344,5 @@ namespace LearnVulkanRAII
         presentInfo.setImageIndices(imageIndex);
 
         _ = presentQueue.presentKHR(presentInfo);
-    }
-
-    uint32_t Renderer::findMemoryType(uint32_t typeFilters, vk::MemoryPropertyFlags properties) const
-    {
-        auto& physicalDevice = m_graphicsContext->getPhysicalDevice();
-        auto memProperties = physicalDevice.getMemoryProperties();
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-        {
-            if ((typeFilters & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-                return i;
-        }
-
-        ASSERT(false, "Failed to find suitable memory type!");
-        return 0;
     }
 } // LearnVulkanRAII

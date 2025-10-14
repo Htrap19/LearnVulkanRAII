@@ -36,7 +36,7 @@ void AppLayer::onDetach()
 
 void AppLayer::onUpdate()
 {
-    m_renderer->onUpdate();
+    m_renderer->endFrame();
 }
 
 void AppLayer::onEvent(Event &e)
