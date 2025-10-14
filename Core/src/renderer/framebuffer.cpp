@@ -13,6 +13,11 @@ namespace LearnVulkanRAII
         init();
     }
 
+    void Framebuffer::resize(uint32_t width, uint32_t height)
+    {
+        init();
+    }
+
     const std::vector<vk::raii::Framebuffer>& Framebuffer::getBuffers() const
     {
         return m_framebuffers;

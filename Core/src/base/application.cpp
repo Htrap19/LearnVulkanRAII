@@ -13,9 +13,9 @@ namespace LearnVulkanRAII
         return m_windows.emplace_back(Utils::makeUnique<Window>(spec));
     }
 
-    void Application::addWindow(Window::Unique &&window)
+    Window::Unique& Application::addWindow(Window::Unique&& window)
     {
-        m_windows.emplace_back(std::move(window));
+        return m_windows.emplace_back(std::move(window));
     }
 
     void Application::run()

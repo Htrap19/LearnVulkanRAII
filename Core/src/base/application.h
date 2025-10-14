@@ -21,7 +21,7 @@ namespace LearnVulkanRAII
         virtual ~Application() = default;
 
         Window::Unique& createWindow(const WindowSpecification& spec);
-        void addWindow(Window::Unique&& window);
+        Window::Unique& addWindow(Window::Unique&& window);
 
         void run();
 

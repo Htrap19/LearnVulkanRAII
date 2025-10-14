@@ -40,6 +40,12 @@ namespace LearnVulkanRAII
         drawFrame();
     }
 
+    void Renderer::resize(uint32_t width, uint32_t height)
+    {
+        // As per current implementation, there is nothing much to handle on resize.
+        // However, this function is kept for future use
+    }
+
     const vk::raii::RenderPass& Renderer::getRenderPass() const
     {
         return *m_renderPass;
@@ -110,7 +116,6 @@ namespace LearnVulkanRAII
     void Renderer::createGraphicsPipeline()
     {
         auto& device = m_graphicsContext->getDevice();
-        auto swapchainImageExtent = m_graphicsContext->getSwapchainExtent();
 
         const std::string vertexGlslSrc = Utils::readFile("Core/resources/shaders/renderer.vertex.glsl");
         const std::string fragmentGlslSrc = Utils::readFile("Core/resources/shaders/renderer.fragment.glsl");
@@ -152,23 +157,12 @@ namespace LearnVulkanRAII
             VK_FALSE
         };
 
-        vk::Viewport viewport{
-            0.0f, 0.0f,
-            static_cast<float>(swapchainImageExtent.width),
-            static_cast<float>(swapchainImageExtent.height),
-            0.0f, 1.0f
-        };
-
-        vk::Rect2D scissor{
-            {0, 0},
-            swapchainImageExtent
-        };
-
         vk::PipelineViewportStateCreateInfo viewportState{
             {},
             1,
-            &viewport, 1,
-            &scissor
+            nullptr,
+            1,
+            nullptr
         };
 
         vk::PipelineRasterizationStateCreateInfo rasterizer{
@@ -212,6 +206,10 @@ namespace LearnVulkanRAII
             &colorBlendAttachment
         };
 
+        std::array dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+        vk::PipelineDynamicStateCreateInfo dynamicStateCreateInfo;
+        dynamicStateCreateInfo.setDynamicStates(dynamicStates);
+
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
         m_pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
 
@@ -227,7 +225,7 @@ namespace LearnVulkanRAII
             &multisampling,
             nullptr,
             &colorBlending,
-            nullptr,
+            &dynamicStateCreateInfo,
             **m_pipelineLayout,
             **m_renderPass,
             0,
@@ -300,6 +298,23 @@ namespace LearnVulkanRAII
         cb.begin(beginInfo);
 
         auto swapchainExtent = m_graphicsContext->getSwapchainExtent();
+
+        vk::Viewport viewport{
+            0,
+            0,
+            static_cast<float>(swapchainExtent.width),
+            static_cast<float>(swapchainExtent.height),
+            0.0f,
+            1.0f
+        };
+
+        vk::Rect2D scissor{
+            {0, 0},
+            swapchainExtent
+        };
+
+        cb.setViewport(0, viewport);
+        cb.setScissor(0, scissor);
 
         vk::ClearValue clearValue{
             vk::ClearColorValue{ std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} }

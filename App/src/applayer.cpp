@@ -3,22 +3,21 @@
 //
 
 #include "applayer.h"
-#include "app.h"
+#include "appwindow.h"
 
 #include "renderer/renderer.h"
 
 #include <print>
 #include <functional>
 
-AppLayer::AppLayer(App* parent)
+AppLayer::AppLayer(AppWindow* parent)
     : m_parent(parent)
 {
     ASSERT(parent, "Parent can't be nullptr!");
     std::println(__FUNCTION__);
 
-    auto mainWindow = m_parent->getWindow();
     m_renderer = m_parent->getRenderer();
-    m_framebuffer = Framebuffer::makeShared(mainWindow->getGraphicsContext(), m_renderer->getRenderPass());
+    m_framebuffer = Framebuffer::makeShared(m_parent->getGraphicsContext(), m_renderer->getRenderPass());
 }
 
 void AppLayer::onAttach()
@@ -68,6 +67,7 @@ void AppLayer::onEvent(Event &e)
 bool AppLayer::onWindowResize(WindowResizeEvent &e)
 {
     std::println("{}", e.toString());
+    m_framebuffer->resize(e.getWidth(), e.getHeight());
     return false;
 }
 

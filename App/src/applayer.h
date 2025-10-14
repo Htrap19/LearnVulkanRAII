@@ -16,14 +16,14 @@
 
 using namespace LearnVulkanRAII;
 
-class App;
+class AppWindow;
 class AppLayer : public Layer
 {
 public:
     DEFINE_SMART_POINTER_HELPERS(AppLayer);
 
 public:
-    explicit AppLayer(App* parent);
+    explicit AppLayer(AppWindow* parent);
 
     void onAttach() override;
     void onDetach() override;
@@ -51,7 +51,7 @@ private:
     bool onMouseScrolled(MouseScrolledEvent& e);
 
 private:
-    App* m_parent;
+    AppWindow* m_parent;
 
     Renderer::Shared m_renderer;
     Framebuffer::Shared m_framebuffer;

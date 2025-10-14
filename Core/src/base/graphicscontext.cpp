@@ -18,6 +18,16 @@ namespace LearnVulkanRAII
         init();
     }
 
+    void GraphicsContext::resize(uint32_t width, uint32_t height)
+    {
+        m_device->waitIdle();
+
+        m_swapchain.reset();
+
+        createSwapchain();
+        createImageViews();
+    }
+
     const vk::raii::Instance& GraphicsContext::getInstance() const
     {
         return *m_instance;
@@ -235,15 +245,15 @@ namespace LearnVulkanRAII
         vk::Format imageFormat = vk::Format::eB8G8R8A8Unorm;
 
         vk::SwapchainCreateInfoKHR swapchainCreateInfo{
-                {},
-                **m_surface,
-                imageCount,
-                imageFormat,
-                vk::ColorSpaceKHR::eSrgbNonlinear,
-                extent,
-                1,
-                vk::ImageUsageFlagBits::eColorAttachment
-            };
+            {},
+            **m_surface,
+            imageCount,
+            imageFormat,
+            vk::ColorSpaceKHR::eSrgbNonlinear,
+            extent,
+            1,
+            vk::ImageUsageFlagBits::eColorAttachment
+        };
 
         auto [graphicsQueueFamilyIndex, presentQueueFamilyIndex] = m_queueFamilyIndices;
         if (graphicsQueueFamilyIndex != presentQueueFamilyIndex)

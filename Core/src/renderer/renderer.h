@@ -26,6 +26,8 @@ namespace LearnVulkanRAII
         void beginFrame(const Framebuffer::Shared& framebuffer);
         void endFrame();
 
+        void resize(uint32_t width, uint32_t height);
+
         [[nodiscard]] const vk::raii::RenderPass& getRenderPass() const;
 
         // TODO: Need to create a 'create' function for renderer

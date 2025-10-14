@@ -20,6 +20,8 @@ namespace LearnVulkanRAII
     public:
         explicit Framebuffer(const GraphicsContext::Shared& graphicsContext, const vk::raii::RenderPass& renderPass);
 
+        void resize(uint32_t width, uint32_t height);
+
         const std::vector<vk::raii::Framebuffer>& getBuffers() const;
 
     private:

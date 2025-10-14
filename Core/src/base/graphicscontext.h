@@ -26,6 +26,8 @@ namespace LearnVulkanRAII
     public:
         explicit GraphicsContext(Window* window);
 
+        void resize(uint32_t width, uint32_t height);
+
         [[nodiscard]] const vk::raii::Instance& getInstance() const;
         [[nodiscard]] const vk::raii::PhysicalDevice& getPhysicalDevice() const;
         [[nodiscard]] const vk::raii::SurfaceKHR& getSurface() const;
