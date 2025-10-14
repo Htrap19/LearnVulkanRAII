@@ -3,13 +3,25 @@
 //
 
 #include "applayer.h"
+#include "app.h"
+
+#include "renderer/renderer.h"
 
 #include <print>
 #include <functional>
 
-AppLayer::AppLayer()
+AppLayer::AppLayer(App* parent)
+    : m_parent(parent)
 {
+    ASSERT(parent, "Parent can't be nullptr!");
     std::println(__FUNCTION__);
+
+    auto mainWindow = m_parent->getWindow();
+    m_renderer = m_parent->getRenderer();
+    m_framebuffer = Framebuffer::makeShared(mainWindow->getGraphicsContext(), m_renderer->getRenderPass());
+
+    // TODO: Need to move this to onUpdate
+    m_renderer->beginFrame(m_framebuffer);
 }
 
 void AppLayer::onAttach()
@@ -24,7 +36,7 @@ void AppLayer::onDetach()
 
 void AppLayer::onUpdate()
 {
-    Layer::onUpdate();
+    m_renderer->onUpdate();
 }
 
 void AppLayer::onEvent(Event &e)

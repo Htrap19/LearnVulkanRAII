@@ -11,15 +11,19 @@
 #include "event/keyevent.h"
 #include "event/mouseevent.h"
 
+#include "renderer/framebuffer.h"
+#include "renderer/renderer.h"
+
 using namespace LearnVulkanRAII;
 
+class App;
 class AppLayer : public Layer
 {
 public:
     DEFINE_SMART_POINTER_HELPERS(AppLayer);
 
 public:
-    AppLayer();
+    explicit AppLayer(App* parent);
 
     void onAttach() override;
     void onDetach() override;
@@ -45,6 +49,12 @@ private:
     bool onMouseButtonReleased(MouseButtonReleasedEvent& e);
     bool onMouseMoved(MouseMovedEvent& e);
     bool onMouseScrolled(MouseScrolledEvent& e);
+
+private:
+    App* m_parent;
+
+    Renderer::Shared m_renderer;
+    Framebuffer::Shared m_framebuffer;
 };
 
 #endif //LEARNVULKANRAII_APPLAYER_H

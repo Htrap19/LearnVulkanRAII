@@ -32,6 +32,8 @@ namespace LearnVulkanRAII
         [[nodiscard]] const vk::raii::Device& getDevice() const;
         [[nodiscard]] const vk::raii::SwapchainKHR& getSwapchain() const;
         [[nodiscard]] const vk::raii::CommandPool& getCommandPool() const;
+        [[nodiscard]] const vk::raii::Queue& getGraphicsQueue() const;
+        [[nodiscard]] const vk::raii::Queue& getPresentQueue() const;
 
         [[nodiscard]] DeviceQueueFamilyIndices getQueueFamilyIndices() const;
         [[nodiscard]] vk::Format getSwapchainImageFormat() const;

@@ -13,6 +13,11 @@ namespace LearnVulkanRAII
         init();
     }
 
+    const std::vector<vk::raii::Framebuffer>& Framebuffer::getBuffers() const
+    {
+        return m_framebuffers;
+    }
+
     void Framebuffer::init()
     {
         auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();

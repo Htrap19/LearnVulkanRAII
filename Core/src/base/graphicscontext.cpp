@@ -48,6 +48,16 @@ namespace LearnVulkanRAII
         return *m_commandPool;
     }
 
+    const vk::raii::Queue& GraphicsContext::getGraphicsQueue() const
+    {
+        return *m_graphicsQueue;
+    }
+
+    const vk::raii::Queue& GraphicsContext::getPresentQueue() const
+    {
+        return *m_presentQueue;
+    }
+
     DeviceQueueFamilyIndices GraphicsContext::getQueueFamilyIndices() const
     {
         return m_queueFamilyIndices;

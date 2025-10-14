@@ -1,4 +1,4 @@
-add_executable(LearnVulkanRAII src/main.cpp
+add_executable(LearnVulkanRAII src/app.h
         src/applayer.cpp
         src/applayer.h)
 

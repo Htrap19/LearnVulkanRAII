@@ -1,16 +1,18 @@
+#ifndef LEARNVULKANRAII_APP_H
+#define LEARNVULKANRAII_APP_H
+
 #include "applayer.h"
 
 #include "base/application.h"
 #include "renderer/renderer.h"
-#include "renderer/framebuffer.h"
 
-class MyApp final : public Application
+class App final : public Application
 {
 public:
-    DEFINE_SMART_POINTER_HELPERS(MyApp);
+    DEFINE_SMART_POINTER_HELPERS(App);
 
 public:
-    MyApp()
+    App()
     {
         WindowSpecification windowSpec;
         windowSpec.width = 1280;
@@ -21,21 +23,24 @@ public:
         auto& window = createWindow(windowSpec);
         m_mainWindow = window.get(); // Not safe but will work for now
         m_renderer = Renderer::makeShared(window->getGraphicsContext());
-        m_framebuffer = Framebuffer::makeShared(m_mainWindow->getGraphicsContext(), m_renderer->getRenderPass());
 
         auto& layerStack = window->getLayerStack();
 
-        AppLayer::Shared appLayer = AppLayer::makeShared();
+        AppLayer::Shared appLayer = AppLayer::makeShared(this);
         layerStack.pushLayer(appLayer);
     }
+
+    Renderer::Shared getRenderer() { return m_renderer; }
+    Window* getWindow() const { return m_mainWindow; }
 
 private:
     Window* m_mainWindow = nullptr;
     Renderer::Shared m_renderer;
-    Framebuffer::Shared m_framebuffer;
 };
 
 Application::Unique createApplication(int argc, char* argv[])
 {
-    return MyApp::makeUnique();
+    return App::makeUnique();
 }
+
+#endif //LEARNVULKANRAII_APP_H

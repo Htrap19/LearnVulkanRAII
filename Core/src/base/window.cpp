@@ -104,6 +104,14 @@ namespace LearnVulkanRAII
     void Window::onEvent(Event &e)
     {
         m_layerStack.onEvent(e);
+
+        EventDispatcher dispatcher(e);
+        dispatcher.dispatch<WindowCloseEvent>([this](WindowCloseEvent& e)
+        {
+            auto& device = m_graphicsContext->getDevice();
+            device.waitIdle();
+            return false;
+        });
     }
 
     void Window::init()

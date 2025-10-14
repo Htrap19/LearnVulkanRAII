@@ -8,7 +8,7 @@
 #include "base/graphicscontext.h"
 #include "base/utils.h"
 
-#include "renderer.h"
+#include <vulkan/vulkan_raii.hpp>
 
 namespace LearnVulkanRAII
 {
@@ -19,6 +19,8 @@ namespace LearnVulkanRAII
 
     public:
         explicit Framebuffer(const GraphicsContext::Shared& graphicsContext, const vk::raii::RenderPass& renderPass);
+
+        const std::vector<vk::raii::Framebuffer>& getBuffers() const;
 
     private:
         void init();

@@ -8,6 +8,8 @@
 #include "base/utils.h"
 #include "base/graphicscontext.h"
 
+#include "framebuffer.h"
+
 #include <vulkan/vulkan_raii.hpp>
 
 namespace LearnVulkanRAII
@@ -19,6 +21,11 @@ namespace LearnVulkanRAII
 
     public:
         explicit Renderer(const GraphicsContext::Shared& graphicsContext);
+
+        void beginFrame(const Framebuffer::Shared& framebuffer);
+        void endFrame();
+
+        void onUpdate();
 
         [[nodiscard]] const vk::raii::RenderPass& getRenderPass() const;
 
@@ -33,6 +40,13 @@ namespace LearnVulkanRAII
         void allocateCommandBuffers();
         void createSyncObjects();
 
+        void createVertexBuffer();
+        void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const;
+
+        void drawFrame() const;
+
+        uint32_t findMemoryType(uint32_t typeFilters, vk::MemoryPropertyFlags properties) const;
+
     private:
         GraphicsContext::Shared m_graphicsContext;
 
@@ -43,6 +57,10 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::Semaphore> m_imageAvailableSemaphore;
         Utils::Optional<vk::raii::Semaphore> m_renderFinishedSemaphore;
         Utils::Optional<vk::raii::Fence> m_inFlightFence;
+
+        // TODO: Need to move this into it's own dedicated class
+        Utils::Optional<vk::raii::Buffer> m_vertexBuffer;
+        Utils::Optional<vk::raii::DeviceMemory> m_vertexBufferMemory;
     };
 } // LearnVulkanRAII
 

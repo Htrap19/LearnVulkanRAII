@@ -21,6 +21,8 @@ CPMAddPackage(
     GIT_TAG 3.4
 )
 
+add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
+
 add_library(LearnVulkanRAIICore STATIC
         # base
         src/base/window.cpp
