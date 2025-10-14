@@ -26,14 +26,7 @@ namespace LearnVulkanRAII
     {
         auto& framebuffers = framebuffer->getBuffers();
         ASSERT(m_commandBuffers.size() == framebuffers.size(), "Framebuffer seems incompatible!");
-
-        for (size_t i = 0; i < m_commandBuffers.size(); i++)
-        {
-            auto& cb = m_commandBuffers[i];
-            auto& fb = framebuffers[i];
-
-            recordCommandBuffer(cb, fb);
-        }
+        m_framebuffer = framebuffer;
     }
 
     void Renderer::endFrame()
@@ -281,6 +274,8 @@ namespace LearnVulkanRAII
 
     void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const
     {
+        cb.reset();
+
         vk::CommandBufferBeginInfo beginInfo{};
         cb.begin(beginInfo);
 
@@ -318,6 +313,7 @@ namespace LearnVulkanRAII
         auto& swapchain = m_graphicsContext->getSwapchain();
         auto& graphicsQueue = m_graphicsContext->getGraphicsQueue();
         auto& presentQueue = m_graphicsContext->getPresentQueue();
+        auto& framebuffers = m_framebuffer->getBuffers();
 
         auto _ = device.waitForFences(**m_inFlightFence, VK_TRUE, UINT64_MAX);
         device.resetFences(**m_inFlightFence);
@@ -326,7 +322,11 @@ namespace LearnVulkanRAII
             swapchain.acquireNextImage(UINT64_MAX, **m_imageAvailableSemaphore);
 
         ASSERT(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR,
-               "Failed to acquire swapchain image!");
+            "Failed to acquire swapchain image!");
+
+        auto& cb = m_commandBuffers[imageIndex];
+        auto& fb = framebuffers[imageIndex];
+        recordCommandBuffer(cb, fb);
 
         vk::SubmitInfo submitInfo{};
 

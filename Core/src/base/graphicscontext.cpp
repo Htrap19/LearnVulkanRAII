@@ -293,7 +293,7 @@ namespace LearnVulkanRAII
     void GraphicsContext::createCommandPool()
     {
         vk::CommandPoolCreateInfo commandPoolCreateInfo{
-            {},
+            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
             static_cast<uint32_t>(m_queueFamilyIndices.graphicsQueueFamilyIndex)
         };
 

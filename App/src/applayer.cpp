@@ -19,9 +19,6 @@ AppLayer::AppLayer(App* parent)
     auto mainWindow = m_parent->getWindow();
     m_renderer = m_parent->getRenderer();
     m_framebuffer = Framebuffer::makeShared(mainWindow->getGraphicsContext(), m_renderer->getRenderPass());
-
-    // TODO: Need to move this to onUpdate
-    m_renderer->beginFrame(m_framebuffer);
 }
 
 void AppLayer::onAttach()
@@ -36,6 +33,8 @@ void AppLayer::onDetach()
 
 void AppLayer::onUpdate()
 {
+    m_renderer->beginFrame(m_framebuffer);
+
     m_renderer->endFrame();
 }
 

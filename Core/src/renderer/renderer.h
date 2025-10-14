@@ -55,6 +55,7 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::Semaphore> m_renderFinishedSemaphore;
         Utils::Optional<vk::raii::Fence> m_inFlightFence;
 
+        Framebuffer::Shared m_framebuffer;
         Buffer::Shared m_vertexBuffer;
     };
 } // LearnVulkanRAII
