@@ -23,6 +23,7 @@ namespace LearnVulkanRAII
             vk::SharingMode sharingMode = vk::SharingMode::eExclusive);
 
         void* map() const;
+        void* map(vk::DeviceSize bufferSize, vk::DeviceSize offset) const;
         void unmap() const;
 
         const vk::raii::Buffer& getNativeBuffer() const;

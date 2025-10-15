@@ -38,6 +38,23 @@ namespace LearnVulkanRAII
     {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
+
+        size_t getVerticesCount() const { return vertices.size(); }
+        size_t getIndicesCount() const { return indices.size(); }
+
+        size_t getVerticesSizeInBytes() const { return getVerticesCount() * sizeof(Vertex); }
+        size_t getIndicesSizeInBytes() const { return getIndicesCount() * sizeof(uint32_t); }
+
+        size_t getFaceCount() const { return indices.size() / 3; }
+
+        void applyTransform(const Transform& transform)
+        {
+            const auto model = transform.toMat4();
+            for (auto& v : vertices)
+            {
+                v.position = model * glm::vec4(v.position, 1.0f);
+            }
+        }
     };
 }
 

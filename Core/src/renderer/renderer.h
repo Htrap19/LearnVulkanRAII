@@ -8,6 +8,8 @@
 #include "base/utils.h"
 #include "base/graphicscontext.h"
 
+#include "mesh/mesh.h"
+
 #include "framebuffer.h"
 #include "buffer.h"
 
@@ -15,6 +17,112 @@
 
 namespace LearnVulkanRAII
 {
+    // As per current implementation, only triangles are supported as a rendering primitive
+    enum class PrimitiveType
+    {
+        TRIANGLES
+    };
+
+    struct AllocationBatchInfo
+    {
+    public:
+        size_t batchSize = 0;
+        PrimitiveType primType = PrimitiveType::TRIANGLES;
+
+    public:
+        AllocationBatchInfo() = default;
+        AllocationBatchInfo(size_t batchSize)
+            : batchSize(batchSize)
+        {
+            calculate();
+        }
+
+        void calculate()
+        {
+            ASSERT(primType == PrimitiveType::TRIANGLES, "Invalid PrimitiveType!");
+
+            vertexCount = batchSize * 3;
+            indexCount = batchSize * 3;
+
+            verticesSize = vertexCount * sizeof(Vertex);
+            indicesSize = indexCount * sizeof(uint32_t);
+        }
+
+        size_t getVertexCount() const { return vertexCount; }
+        size_t getIndexCount() const { return indexCount; }
+        size_t getVerticesSize() const { return verticesSize; }
+        size_t getIndicesSize() const { return indicesSize; }
+
+    private:
+        size_t vertexCount = 0;
+        size_t indexCount = 0;
+
+        // In bytes
+        size_t verticesSize = 0;
+        size_t indicesSize = 0;
+    };
+
+    struct LocalAllocation
+    {
+        Vertex* vertices = nullptr;
+        uint32_t* indices = nullptr;
+        AllocationBatchInfo batchInfo;
+
+        size_t currentVertexCount = 0;
+        size_t currentIndexCount = 0;
+
+        LocalAllocation() = default;
+        explicit LocalAllocation(const AllocationBatchInfo& allocationBatchInfo)
+            : batchInfo(allocationBatchInfo)
+        {
+            allocate();
+        }
+
+        ~LocalAllocation()
+        {
+            deAllocate();
+        }
+
+        void setBatchInfo(const AllocationBatchInfo& allocationBatchInfo)
+        {
+            this->batchInfo = allocationBatchInfo;
+
+            allocate();
+        }
+
+        void allocate()
+        {
+            ASSERT(batchInfo.batchSize > 0, "Invalid batchSize!");
+
+            deAllocate();
+            vertices = new Vertex[batchInfo.getVertexCount()];
+            indices = new uint32_t[batchInfo.getIndexCount()];
+        }
+
+        void deAllocate()
+        {
+            if (vertices != nullptr)
+                delete[] vertices;
+            if (indices != nullptr)
+                delete[] indices;
+
+            vertices = nullptr;
+            indices = nullptr;
+            resetCurrentCounts();
+        }
+
+        size_t getCurrentVerticesSizeInBytes() const { return currentVertexCount * sizeof(Vertex); }
+        size_t getCurrentIndicesSizeInBytes() const { return currentIndexCount * sizeof(uint32_t); }
+
+        size_t getCurrentFaceCounts() const { return currentIndexCount / 3; }
+
+        void resetCurrentCounts()
+        {
+            currentVertexCount = 0;
+            currentIndexCount = 0;
+        }
+    };
+
     class Renderer
     {
     public:
@@ -26,7 +134,12 @@ namespace LearnVulkanRAII
         void beginFrame(const Framebuffer::Shared& framebuffer);
         void endFrame();
 
+        void drawMesh(const Mesh& mesh);
+
         void resize(uint32_t width, uint32_t height);
+
+        void setBatchSize(size_t batchSize);
+        size_t getBatchSize() const;
 
         [[nodiscard]] const vk::raii::RenderPass& getRenderPass() const;
 
@@ -44,7 +157,7 @@ namespace LearnVulkanRAII
         void createBuffers();
         void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const;
 
-        void drawFrame() const;
+        void drawFrame();
 
     private:
         GraphicsContext::Shared m_graphicsContext;
@@ -60,6 +173,9 @@ namespace LearnVulkanRAII
         Framebuffer::Shared m_framebuffer;
         Buffer::Shared m_vertexBuffer;
         Buffer::Shared m_indexBuffer;
+
+        AllocationBatchInfo m_allocationBatchInfo;
+        LocalAllocation m_localAllocation;
     };
 } // LearnVulkanRAII
 

@@ -21,41 +21,45 @@ CPMAddPackage(
     GIT_TAG 3.4
 )
 
-add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
-
 add_library(LearnVulkanRAIICore STATIC
-        # base
-        src/base/window.cpp
-        src/base/window.h
-        src/base/utils.h
-        src/base/application.cpp
-        src/base/application.h
-        src/base/graphicscontext.cpp
-        src/base/graphicscontext.h
-        src/base/layer.h
-        src/base/layerstack.cpp
-        src/base/layerstack.h
+    # base
+    src/base/window.cpp
+    src/base/window.h
+    src/base/utils.h
+    src/base/application.cpp
+    src/base/application.h
+    src/base/graphicscontext.cpp
+    src/base/graphicscontext.h
+    src/base/layer.h
+    src/base/layerstack.cpp
+    src/base/layerstack.h
+    src/base/timestep.h
 
-        # event
-        src/event/event.h
-        src/event/windowevent.h
-        src/event/keyevent.h
-        src/base/inputcodes.h
-        src/event/mouseevent.h
-        src/mesh/mesh.h
-        src/renderer/renderer.cpp
-        src/renderer/renderer.h
-        src/renderer/utils/utils.cpp
-        src/renderer/utils/utils.h
-        src/renderer/framebuffer.cpp
-        src/renderer/framebuffer.h
-        src/renderer/buffer.cpp
-        src/renderer/buffer.h
+    # event
+    src/event/event.h
+    src/event/windowevent.h
+    src/event/keyevent.h
+    src/base/inputcodes.h
+    src/event/mouseevent.h
+
+    # mesh
+    src/mesh/mesh.h
+
+    # renderer
+    src/renderer/renderer.cpp
+    src/renderer/renderer.h
+    src/renderer/utils/utils.cpp
+    src/renderer/utils/utils.h
+    src/renderer/framebuffer.cpp
+    src/renderer/framebuffer.h
+    src/renderer/buffer.cpp
+    src/renderer/buffer.h
 )
 
 target_link_libraries(LearnVulkanRAIICore PUBLIC
-        Vulkan::Vulkan
-        Vulkan::Hpp
-        glfw
-        glslang::glslang
-        glslang::glslang-default-resource-limits)
+    Vulkan::Vulkan
+    Vulkan::Hpp
+    glfw
+    glslang::glslang
+    glslang::glslang-default-resource-limits
+)

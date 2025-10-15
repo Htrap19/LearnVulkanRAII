@@ -54,11 +54,11 @@ namespace LearnVulkanRAII
         }
     }
 
-    void LayerStack::onUpdate()
+    void LayerStack::onUpdate(Timestep ts)
     {
         for (const auto& layer : m_layers)
         {
-            layer->onUpdate();
+            layer->onUpdate(ts);
         }
     }
 

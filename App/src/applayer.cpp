@@ -10,6 +10,9 @@
 #include <print>
 #include <functional>
 
+static Mesh s_quadMesh1;
+static Mesh s_quadMesh2;
+
 AppLayer::AppLayer(AppWindow* parent)
     : m_parent(parent)
 {
@@ -18,6 +21,32 @@ AppLayer::AppLayer(AppWindow* parent)
 
     m_renderer = m_parent->getRenderer();
     m_framebuffer = Framebuffer::makeShared(m_parent->getGraphicsContext(), m_renderer->getRenderPass());
+
+    s_quadMesh1.vertices = {
+        // Left Quad
+        Vertex{{-0.5f,  -0.5f, 0.0f}}, // 0 - Bottom left
+        Vertex{{-0.25f, -0.5f, 0.0f}}, // 1 - Bottom right
+        Vertex{{-0.25f,  0.5f, 0.0f}}, // 2 - Top right
+        Vertex{{-0.5f,   0.5f, 0.0f}}, // 3 - Top left
+    };
+
+    s_quadMesh1.indices = {
+        0, 1, 2,   // First triangle (bottom-left to top-right)
+        2, 3, 0    // Second triangle
+    };
+
+    s_quadMesh2.vertices = {
+        // Right Quad
+        Vertex{{0.5f, -0.5f, 0.0f}}, // 0 - Bottom left
+        Vertex{{0.25f,-0.5f, 0.0f}}, // 1 - Bottom right
+        Vertex{{0.25f, 0.5f, 0.0f}}, // 2 - Top right
+        Vertex{{0.5f,  0.5f, 0.0f}}, // 3 - Top left
+    };
+
+    s_quadMesh2.indices = {
+        0, 2, 1,   // First triangle (CW)
+        0, 3, 2    // Second triangle (CW)
+    };
 }
 
 void AppLayer::onAttach()
@@ -30,10 +59,11 @@ void AppLayer::onDetach()
     std::println(__FUNCTION__);
 }
 
-void AppLayer::onUpdate()
+void AppLayer::onUpdate(Timestep ts)
 {
     m_renderer->beginFrame(m_framebuffer);
-
+    m_renderer->drawMesh(s_quadMesh1);
+    m_renderer->drawMesh(s_quadMesh2);
     m_renderer->endFrame();
 }
 

@@ -36,7 +36,7 @@ namespace LearnVulkanRAII
         // - popOverlayLater()
 
     protected:
-        virtual void onUpdate();
+        virtual void onUpdate(Timestep ts);
         virtual void onEvent(Event& e);
 
     private:

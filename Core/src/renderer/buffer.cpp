@@ -22,13 +22,18 @@ namespace LearnVulkanRAII
 
     void* Buffer::map() const
     {
+        return map(m_bufferSize, 0);
+    }
+
+    void* Buffer::map(vk::DeviceSize bufferSize, vk::DeviceSize offset) const
+    {
         auto& device = m_graphicsContext->getDevice();
 
         vk::MemoryMapInfo memoryMapInfo{
             {},
             **m_bufferMemory,
-            0,
-            m_bufferSize
+            offset,
+            bufferSize
         };
 
         return device.mapMemory2(memoryMapInfo);

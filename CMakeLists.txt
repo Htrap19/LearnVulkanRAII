@@ -13,6 +13,7 @@ endif()
 
 include(${CPM_DOWNLOAD_LOCATION})
 
+add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
 include_directories(Core/src)
 
 add_subdirectory(Core)

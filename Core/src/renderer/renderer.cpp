@@ -7,23 +7,11 @@
 #include "mesh/mesh.h"
 #include "renderer/utils/utils.h"
 
-// TODO: Need to remove this, and use the Mesh for drawing
-static std::vector<glm::vec3> vertices = {
-    {-0.5f, -0.5f, 0.0f}, // Bottom left  (0)
-    { 0.5f, -0.5f, 0.0f}, // Bottom right (1)
-    { 0.5f,  0.5f, 0.0f}, // Top right    (2)
-    {-0.5f,  0.5f, 0.0f}  // Top left     (3)
-};
-
-static std::vector<uint32_t> indices = {
-    0, 1, 2,   // First triangle (bottom-left to top-right)
-    2, 3, 0    // Second triangle
-};
-
 namespace LearnVulkanRAII
 {
     Renderer::Renderer(const GraphicsContext::Shared& graphicsContext)
-        : m_graphicsContext(graphicsContext)
+        : m_graphicsContext(graphicsContext),
+        m_allocationBatchInfo(500)
     {
         init();
     }
@@ -40,10 +28,42 @@ namespace LearnVulkanRAII
         drawFrame();
     }
 
+    void Renderer::drawMesh(const Mesh& mesh)
+    {
+        if (m_localAllocation.getCurrentFaceCounts() + mesh.getFaceCount() > m_allocationBatchInfo.batchSize)
+        {
+            // flush
+            drawFrame();
+        }
+
+        size_t indexOffset = m_localAllocation.currentVertexCount;
+        memcpy((m_localAllocation.vertices + indexOffset), mesh.vertices.data(), mesh.getVerticesSizeInBytes());
+        m_localAllocation.currentVertexCount += mesh.getVerticesCount();
+
+        for (const auto idx : mesh.indices)
+        {
+            m_localAllocation.indices[m_localAllocation.currentIndexCount++] = idx + indexOffset;
+        }
+    }
+
     void Renderer::resize(uint32_t width, uint32_t height)
     {
         // As per current implementation, there is nothing much to handle on resize.
         // However, this function is kept for future use
+    }
+
+    void Renderer::setBatchSize(size_t batchSize)
+    {
+        auto& device = m_graphicsContext->getDevice();
+        device.waitIdle();
+        m_allocationBatchInfo = AllocationBatchInfo(batchSize);
+
+        createBuffers(); // re-create the buffers
+    }
+
+    size_t Renderer::getBatchSize() const
+    {
+        return m_allocationBatchInfo.batchSize;
     }
 
     const vk::raii::RenderPass& Renderer::getRenderPass() const
@@ -139,13 +159,14 @@ namespace LearnVulkanRAII
 
         vk::VertexInputBindingDescription vertexInputBindingDescription{
             0,
-            sizeof(glm::vec3)
+            sizeof(Vertex),
         };
 
         vk::VertexInputAttributeDescription vertexInputAttributeDescription{
             0,
             0,
-            vk::Format::eR32G32B32Sfloat
+            vk::Format::eR32G32B32Sfloat,
+            offsetof(Vertex, position)
         };
 
         vertexInputInfo.setVertexBindingDescriptions(vertexInputBindingDescription);
@@ -264,30 +285,24 @@ namespace LearnVulkanRAII
 
     void Renderer::createBuffers()
     {
+        // Initialize local buffer allocation
+        m_localAllocation.setBatchInfo(m_allocationBatchInfo);
+
         // vertex buffer
-        vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+        vk::DeviceSize bufferSize = m_allocationBatchInfo.getVerticesSize();
         m_vertexBuffer = Buffer::create(
             m_graphicsContext,
             bufferSize,
             vk::BufferUsageFlagBits::eVertexBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
-        void* data = m_vertexBuffer->map();
-        memcpy(data, vertices.data(), bufferSize);
-        m_vertexBuffer->unmap();
-        data = nullptr;
-
         // index buffer
-        bufferSize = sizeof(indices[0]) * indices.size();
+        bufferSize = m_allocationBatchInfo.getIndicesSize();
         m_indexBuffer = Buffer::create(
             m_graphicsContext,
             bufferSize,
             vk::BufferUsageFlagBits::eIndexBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-        data = m_indexBuffer->map();
-        memcpy(data, indices.data(), bufferSize);
-        m_indexBuffer->unmap();
     }
 
     void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const
@@ -338,14 +353,16 @@ namespace LearnVulkanRAII
 
         cb.bindIndexBuffer(*m_indexBuffer->getNativeBuffer(), 0, vk::IndexType::eUint32);
 
-        cb.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        cb.drawIndexed(static_cast<uint32_t>(m_localAllocation.currentIndexCount),
+            1, 0, 0, 0);
 
         cb.endRenderPass();
         cb.end();
     }
 
-    void Renderer::drawFrame() const
+    void Renderer::drawFrame()
     {
+        // Draw a frame
         auto& device = m_graphicsContext->getDevice();
         auto& swapchain = m_graphicsContext->getSwapchain();
         auto& graphicsQueue = m_graphicsContext->getGraphicsQueue();
@@ -354,6 +371,15 @@ namespace LearnVulkanRAII
 
         auto _ = device.waitForFences(**m_inFlightFence, VK_TRUE, UINT64_MAX);
         device.resetFences(**m_inFlightFence);
+
+        // Copy from local allocation to the dedicated vk buffers
+        void* data = m_vertexBuffer->map(m_localAllocation.getCurrentVerticesSizeInBytes(), 0);
+        memcpy(data, m_localAllocation.vertices, m_localAllocation.getCurrentVerticesSizeInBytes());
+        m_vertexBuffer->unmap();
+
+        data = m_indexBuffer->map(m_localAllocation.getCurrentIndicesSizeInBytes(), 0);
+        memcpy(data, m_localAllocation.indices, m_localAllocation.getCurrentIndicesSizeInBytes());
+        m_indexBuffer->unmap();
 
         auto [result, imageIndex] =
             swapchain.acquireNextImage(UINT64_MAX, **m_imageAvailableSemaphore);
@@ -381,5 +407,8 @@ namespace LearnVulkanRAII
         presentInfo.setImageIndices(imageIndex);
 
         _ = presentQueue.presentKHR(presentInfo);
+
+        // Reset local allocation counts
+        m_localAllocation.resetCurrentCounts();
     }
 } // LearnVulkanRAII

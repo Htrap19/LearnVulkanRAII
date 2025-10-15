@@ -73,6 +73,7 @@ namespace LearnVulkanRAII
 
     private:
         WindowData m_data;
+        float m_lastFrameTime = 0.0f;
 
         GLFWwindow* m_window = nullptr;
         GraphicsContext::Shared m_graphicsContext;

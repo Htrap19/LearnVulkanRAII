@@ -93,7 +93,11 @@ namespace LearnVulkanRAII
             onEvent(e);
         }
 
-        m_layerStack.onUpdate();
+        float time = glfwGetTime();
+        Timestep timestep = time - m_lastFrameTime;
+        m_lastFrameTime = time;
+
+        m_layerStack.onUpdate(timestep);
     }
 
     Window::Unique Window::create(const WindowSpecification &spec)
