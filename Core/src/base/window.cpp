@@ -18,6 +18,7 @@ namespace LearnVulkanRAII
     {
         m_data.width = spec.width;
         m_data.height = spec.height;
+        m_data.aspectRatio = static_cast<float>(spec.width) / static_cast<float>(spec.height);
         m_data.title = spec.title;
         m_data.fullscreen = spec.fullscreen;
         m_data.onEvent = std::bind(&Window::onEvent, this, std::placeholders::_1);
@@ -39,6 +40,11 @@ namespace LearnVulkanRAII
     uint32_t Window::getHeight() const
     {
         return m_data.height;
+    }
+
+    float Window::getAspectRatio() const
+    {
+        return m_data.aspectRatio;
     }
 
     const std::string& Window::getTitle() const
@@ -142,6 +148,7 @@ namespace LearnVulkanRAII
             auto* windowData = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
             windowData->width = static_cast<uint32_t>(width);
             windowData->height = static_cast<uint32_t>(height);
+            windowData->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
             WindowResizeEvent e(windowData->width, windowData->height);
             windowData->onEvent(e);

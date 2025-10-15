@@ -39,6 +39,7 @@ namespace LearnVulkanRAII
 
         [[nodiscard]] uint32_t getWidth() const;
         [[nodiscard]] uint32_t getHeight() const;
+        [[nodiscard]] float getAspectRatio() const;
         [[nodiscard]] const std::string& getTitle() const;
         [[nodiscard]] bool getIsFullscreen() const;
         [[nodiscard]] const glm::ivec2& getWindowPosition() const;
@@ -61,6 +62,7 @@ namespace LearnVulkanRAII
         struct WindowData
         {
             uint32_t width, height;
+            float aspectRatio;
             bool fullscreen;
             std::string title;
             glm::ivec2 windowPos;

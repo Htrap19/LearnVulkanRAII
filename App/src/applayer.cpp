@@ -61,7 +61,11 @@ void AppLayer::onDetach()
 
 void AppLayer::onUpdate(Timestep ts)
 {
-    m_renderer->beginFrame(m_framebuffer);
+    CameraViewData cm;
+    cm.projection = glm::perspective(glm::radians(45.0f), m_parent->getAspectRatio(), 0.1f, 100.0f);
+    cm.view = glm::lookAt(glm::vec3(0.0f, 2.0f, 1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    m_renderer->beginFrame(m_framebuffer, cm);
     m_renderer->drawMesh(s_quadMesh1);
     m_renderer->drawMesh(s_quadMesh2);
     m_renderer->endFrame();

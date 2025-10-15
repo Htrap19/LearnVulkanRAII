@@ -7,6 +7,8 @@
 #include "mesh/mesh.h"
 #include "renderer/utils/utils.h"
 
+#include <glm/glm.hpp>
+
 namespace LearnVulkanRAII
 {
     Renderer::Renderer(const GraphicsContext::Shared& graphicsContext)
@@ -16,11 +18,12 @@ namespace LearnVulkanRAII
         init();
     }
 
-    void Renderer::beginFrame(const Framebuffer::Shared& framebuffer)
+    void Renderer::beginFrame(const Framebuffer::Shared& framebuffer, const CameraViewData& cameraData)
     {
         auto& framebuffers = framebuffer->getBuffers();
         ASSERT(m_commandBuffers.size() == framebuffers.size(), "Framebuffer seems incompatible!");
         m_framebuffer = framebuffer;
+        m_cameraViewData = cameraData;
     }
 
     void Renderer::endFrame()
@@ -74,11 +77,14 @@ namespace LearnVulkanRAII
     void Renderer::init()
     {
         createRenderPass();
+        createDescriptorSetLayout();
         createGraphicsPipeline();
         allocateCommandBuffers();
         createSyncObjects();
 
         createBuffers();
+        createDescriptorPool();
+        allocateDescriptorSets();
     }
 
     void Renderer::createRenderPass()
@@ -131,6 +137,26 @@ namespace LearnVulkanRAII
         };
 
         m_renderPass = device.createRenderPass(renderPassInfo);
+    }
+
+    void Renderer::createDescriptorSetLayout()
+    {
+        auto& device = m_graphicsContext->getDevice();
+
+        vk::DescriptorSetLayoutBinding cameraViewDataBinding{
+            0,
+            vk::DescriptorType::eUniformBuffer,
+            1,
+            vk::ShaderStageFlagBits::eVertex,
+        };
+
+        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
+            {},
+            1,
+            &cameraViewDataBinding
+        };
+
+        m_descriptorSetLayout = device.createDescriptorSetLayout(descriptorSetLayoutCreateInfo);
     }
 
     void Renderer::createGraphicsPipeline()
@@ -232,7 +258,9 @@ namespace LearnVulkanRAII
         dynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-        m_pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
+        pipelineLayoutInfo.setSetLayouts(**m_descriptorSetLayout);
+
+        m_pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
 
         vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo{
             {},
@@ -303,6 +331,65 @@ namespace LearnVulkanRAII
             bufferSize,
             vk::BufferUsageFlagBits::eIndexBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        // camera view data uniform buffer
+        bufferSize = sizeof(CameraViewData);
+        m_cameraViewDataBuffer = Buffer::create(
+            m_graphicsContext,
+            bufferSize,
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+    }
+
+    void Renderer::createDescriptorPool()
+    {
+        auto& device = m_graphicsContext->getDevice();
+
+        vk::DescriptorPoolSize descriptorPoolSize{
+            vk::DescriptorType::eUniformBuffer,
+            1,
+        };
+
+        vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo{
+            vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+            1,
+            1,
+            &descriptorPoolSize
+        };
+
+        m_descriptorPool = device.createDescriptorPool(descriptorPoolCreateInfo);
+    }
+
+    void Renderer::allocateDescriptorSets()
+    {
+        auto& device = m_graphicsContext->getDevice();
+
+        vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo{
+            **m_descriptorPool,
+            1,
+            &**m_descriptorSetLayout,
+        };
+
+        m_descriptorSet = device.allocateDescriptorSets(descriptorSetAllocateInfo);
+        ASSERT(m_descriptorSet.size(), "Failed to allocate descriptor sets!");
+
+        vk::DescriptorBufferInfo descriptorBufferInfo{
+            *m_cameraViewDataBuffer->getNativeBuffer(),
+            0,
+            sizeof(CameraViewData)
+        };
+
+        vk::WriteDescriptorSet writeDescriptorSet{
+            *m_descriptorSet[0],
+            0,
+            0,
+            1,
+            vk::DescriptorType::eUniformBuffer,
+            nullptr,
+            &descriptorBufferInfo
+        };
+
+        device.updateDescriptorSets(writeDescriptorSet, nullptr);
     }
 
     void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const
@@ -353,6 +440,8 @@ namespace LearnVulkanRAII
 
         cb.bindIndexBuffer(*m_indexBuffer->getNativeBuffer(), 0, vk::IndexType::eUint32);
 
+        cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, **m_pipelineLayout, 0, *m_descriptorSet[0], nullptr);
+
         cb.drawIndexed(static_cast<uint32_t>(m_localAllocation.currentIndexCount),
             1, 0, 0, 0);
 
@@ -380,6 +469,10 @@ namespace LearnVulkanRAII
         data = m_indexBuffer->map(m_localAllocation.getCurrentIndicesSizeInBytes(), 0);
         memcpy(data, m_localAllocation.indices, m_localAllocation.getCurrentIndicesSizeInBytes());
         m_indexBuffer->unmap();
+
+        data = m_cameraViewDataBuffer->map();
+        memcpy(data, &m_cameraViewData, sizeof(CameraViewData));
+        m_cameraViewDataBuffer->unmap();
 
         auto [result, imageIndex] =
             swapchain.acquireNextImage(UINT64_MAX, **m_imageAvailableSemaphore);

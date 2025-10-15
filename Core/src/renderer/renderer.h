@@ -123,6 +123,12 @@ namespace LearnVulkanRAII
         }
     };
 
+    struct CameraViewData
+    {
+        glm::mat4 projection;
+        glm::mat4 view;
+    };
+
     class Renderer
     {
     public:
@@ -131,7 +137,7 @@ namespace LearnVulkanRAII
     public:
         explicit Renderer(const GraphicsContext::Shared& graphicsContext);
 
-        void beginFrame(const Framebuffer::Shared& framebuffer);
+        void beginFrame(const Framebuffer::Shared& framebuffer, const CameraViewData& cameraData);
         void endFrame();
 
         void drawMesh(const Mesh& mesh);
@@ -150,11 +156,15 @@ namespace LearnVulkanRAII
         void init();
 
         void createRenderPass();
+        void createDescriptorSetLayout();
         void createGraphicsPipeline();
         void allocateCommandBuffers();
         void createSyncObjects();
 
         void createBuffers();
+        void createDescriptorPool();
+        void allocateDescriptorSets();
+
         void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const;
 
         void drawFrame();
@@ -169,13 +179,18 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::Semaphore> m_imageAvailableSemaphore;
         Utils::Optional<vk::raii::Semaphore> m_renderFinishedSemaphore;
         Utils::Optional<vk::raii::Fence> m_inFlightFence;
+        Utils::Optional<vk::raii::DescriptorSetLayout> m_descriptorSetLayout;
+        Utils::Optional<vk::raii::DescriptorPool> m_descriptorPool;
+        std::vector<vk::raii::DescriptorSet> m_descriptorSet;
 
         Framebuffer::Shared m_framebuffer;
         Buffer::Shared m_vertexBuffer;
         Buffer::Shared m_indexBuffer;
+        Buffer::Shared m_cameraViewDataBuffer;
 
         AllocationBatchInfo m_allocationBatchInfo;
         LocalAllocation m_localAllocation;
+        CameraViewData m_cameraViewData;
     };
 } // LearnVulkanRAII
 
