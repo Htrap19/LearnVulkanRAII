@@ -34,12 +34,6 @@ namespace LearnVulkanRAII
         glm::mat4 model = glm::mat4(1.0f);
     };
 
-    struct SceneUniformData
-    {
-        CameraViewData cameraView;
-        ObjectMetadata objectsMetadata[32];
-    };
-
     struct AllocationBatchInfo
     {
     public:
@@ -48,12 +42,12 @@ namespace LearnVulkanRAII
 
         /* TODO: Need to implement a way by which we can configure the model count,
          * which will involve shader code modification programmatically */
-        size_t modelsCount = 0;
+        size_t modelCount = 0;
 
     public:
         AllocationBatchInfo() = default;
         AllocationBatchInfo(size_t batchSize, size_t modelsCount)
-            : batchSize(batchSize), modelsCount(modelsCount)
+            : batchSize(batchSize), modelCount(modelsCount)
         {
             calculate();
         }
@@ -67,12 +61,14 @@ namespace LearnVulkanRAII
 
             verticesSize = vertexCount * sizeof(Vertex);
             indicesSize = indexCount * sizeof(uint32_t);
+            modelsSize = modelCount * sizeof(ObjectMetadata);
         }
 
         size_t getVertexCount() const { return vertexCount; }
         size_t getIndexCount() const { return indexCount; }
         size_t getVerticesSizeInBytes() const { return verticesSize; }
         size_t getIndicesSizeInBytes() const { return indicesSize; }
+        size_t getModelsSizeInBytes() const { return modelsSize; }
 
     private:
         size_t vertexCount = 0;
@@ -81,30 +77,23 @@ namespace LearnVulkanRAII
         // In bytes
         size_t verticesSize = 0;
         size_t indicesSize = 0;
+        size_t modelsSize = 0;
     };
 
     struct LocalTransferSpace
     {
         Vertex* vertices = nullptr;
         uint32_t* indices = nullptr;
-        SceneUniformData* sceneUniformData = nullptr;
+        ObjectMetadata* objectMetadata = nullptr;
         AllocationBatchInfo batchInfo;
 
         size_t currentVertexCount = 0;
         size_t currentIndexCount = 0;
         size_t currentObjectMetadataCount = 0;
 
-        size_t minUniformBufferAlignment = 0;
-        size_t maxSceneUniformDataCount = 0;
-        size_t uniformBufferAlignment = 0;
-
         LocalTransferSpace() = default;
-        explicit LocalTransferSpace(const AllocationBatchInfo& allocationBatchInfo,
-            size_t minUniformBufferAlignment,
-            size_t maxSceneUniformDataCount)
-            : batchInfo(allocationBatchInfo),
-            minUniformBufferAlignment(minUniformBufferAlignment),
-            maxSceneUniformDataCount(maxSceneUniformDataCount)
+        explicit LocalTransferSpace(const AllocationBatchInfo& allocationBatchInfo)
+            : batchInfo(allocationBatchInfo)
         {
             allocate();
         }
@@ -116,16 +105,7 @@ namespace LearnVulkanRAII
 
         void setBatchInfo(const AllocationBatchInfo& allocationBatchInfo)
         {
-            setBatchInfo(allocationBatchInfo, minUniformBufferAlignment, maxSceneUniformDataCount);
-        }
-
-        void setBatchInfo(const AllocationBatchInfo& allocationBatchInfo,
-            size_t minUniformBufferOffsetAlignment,
-            size_t maxSceneUniformDataCount)
-        {
             batchInfo = allocationBatchInfo;
-            this->minUniformBufferAlignment = minUniformBufferOffsetAlignment;
-            this->maxSceneUniformDataCount = maxSceneUniformDataCount;
 
             allocate();
         }
@@ -138,10 +118,7 @@ namespace LearnVulkanRAII
 
             vertices = new Vertex[batchInfo.getVertexCount()];
             indices = new uint32_t[batchInfo.getIndexCount()];
-
-            uniformBufferAlignment = calculateUniformBufferAlignment();
-            sceneUniformData = static_cast<SceneUniformData *>(_aligned_malloc(
-                getTotalSceneUniformDataSizeInBytes(), minUniformBufferAlignment));
+            objectMetadata = new ObjectMetadata[batchInfo.modelCount];
         }
 
         void deAllocate()
@@ -150,26 +127,19 @@ namespace LearnVulkanRAII
                 delete[] vertices;
             if (indices != nullptr)
                 delete[] indices;
-            if (sceneUniformData != nullptr)
-                _aligned_free(sceneUniformData);
+            if (objectMetadata != nullptr)
+                delete[] objectMetadata;
 
             vertices = nullptr;
             indices = nullptr;
-            sceneUniformData = nullptr;
+            objectMetadata = nullptr;
 
             resetCurrentCounts();
         }
 
-        size_t calculateUniformBufferAlignment() const
-        {
-            return (sizeof(SceneUniformData) + minUniformBufferAlignment - 1) & ~(minUniformBufferAlignment - 1);
-        }
-
         size_t getCurrentVerticesSizeInBytes() const { return currentVertexCount * sizeof(Vertex); }
         size_t getCurrentIndicesSizeInBytes() const { return currentIndexCount * sizeof(uint32_t); }
-
-        size_t getTotalSceneUniformDataSizeInBytes() const
-        { return uniformBufferAlignment * maxSceneUniformDataCount; }
+        size_t getCurrentObjectMetadataSizeInBytes() const { return currentObjectMetadataCount * sizeof(ObjectMetadata); }
 
         size_t getCurrentFaceCounts() const { return currentIndexCount / 3; }
 
@@ -218,7 +188,7 @@ namespace LearnVulkanRAII
         void createDescriptorPool();
         void allocateDescriptorSets();
 
-        void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb, size_t imgIdx) const;
+        void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const;
 
         void drawFrame();
 
@@ -239,7 +209,8 @@ namespace LearnVulkanRAII
         Framebuffer::Shared m_framebuffer;
         Buffer::Shared m_vertexBuffer;
         Buffer::Shared m_indexBuffer;
-        Buffer::Shared m_sceneUniformDataBuffer;
+        Buffer::Shared m_cameraViewDataBuffer;
+        Buffer::Shared m_objectMetadataBuffer;
 
         AllocationBatchInfo m_allocationBatchInfo;
         LocalTransferSpace m_localTransferSpace;

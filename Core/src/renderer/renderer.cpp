@@ -23,7 +23,11 @@ namespace LearnVulkanRAII
         auto& framebuffers = framebuffer->getBuffers();
         ASSERT(m_commandBuffers.size() == framebuffers.size(), "Framebuffer seems incompatible!");
         m_framebuffer = framebuffer;
-        m_localTransferSpace.sceneUniformData->cameraView = cameraData;
+
+        // Copy the per-frame camera view data
+        void* data = m_cameraViewDataBuffer->map();
+        std::memcpy(data, &cameraData, sizeof(CameraViewData));
+        m_cameraViewDataBuffer->unmap();
     }
 
     void Renderer::endFrame()
@@ -34,14 +38,16 @@ namespace LearnVulkanRAII
     void Renderer::drawMesh(const Mesh& mesh, const Transform& transform)
     {
         if (m_localTransferSpace.getCurrentFaceCounts() + mesh.getFaceCount() > m_allocationBatchInfo.batchSize ||
-            m_localTransferSpace.currentObjectMetadataCount >= m_allocationBatchInfo.modelsCount)
+            m_localTransferSpace.currentObjectMetadataCount >= m_allocationBatchInfo.modelCount)
         {
             // flush
             drawFrame();
         }
 
+        // TODO: Need to find a better way instead of just copying memory on each draw call
         size_t indexOffset = m_localTransferSpace.currentVertexCount;
-        memcpy((m_localTransferSpace.vertices + indexOffset), mesh.vertices.data(), mesh.getVerticesSizeInBytes());
+        std::memcpy((m_localTransferSpace.vertices + indexOffset),
+            mesh.vertices.data(), mesh.getVerticesSizeInBytes());
         m_localTransferSpace.currentVertexCount += mesh.getVerticesCount();
 
         for (const auto idx : mesh.indices)
@@ -49,8 +55,7 @@ namespace LearnVulkanRAII
             m_localTransferSpace.indices[m_localTransferSpace.currentIndexCount++] = idx + indexOffset;
         }
 
-        m_localTransferSpace.sceneUniformData->
-            objectsMetadata[m_localTransferSpace.currentObjectMetadataCount++].model = transform.toMat4();
+        m_localTransferSpace.objectMetadata[m_localTransferSpace.currentObjectMetadataCount++].model = transform.toMat4();
     }
 
     void Renderer::resize(uint32_t width, uint32_t height)
@@ -63,7 +68,8 @@ namespace LearnVulkanRAII
     {
         auto& device = m_graphicsContext->getDevice();
         device.waitIdle();
-        m_allocationBatchInfo = AllocationBatchInfo(batchSize, 32);
+        size_t currentModelCount = m_allocationBatchInfo.modelCount;
+        m_allocationBatchInfo = AllocationBatchInfo(batchSize, currentModelCount);
 
         allocateLocalTransferSpace();
         createBuffers(); // re-create the buffers
@@ -151,15 +157,24 @@ namespace LearnVulkanRAII
 
         vk::DescriptorSetLayoutBinding cameraViewDataBinding{
             0,
-            vk::DescriptorType::eUniformBufferDynamic,
+            vk::DescriptorType::eUniformBuffer,
             1,
             vk::ShaderStageFlagBits::eVertex,
         };
 
+        vk::DescriptorSetLayoutBinding objectMetadataBinding{
+            1,
+            vk::DescriptorType::eStorageBuffer,
+            1,
+            vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
+        };
+
+        std::array layoutBindings{ cameraViewDataBinding, objectMetadataBinding };
+
         vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
             {},
-            1,
-            &cameraViewDataBinding
+            static_cast<uint32_t>(layoutBindings.size()),
+            layoutBindings.data()
         };
 
         m_descriptorSetLayout = device.createDescriptorSetLayout(descriptorSetLayoutCreateInfo);
@@ -319,15 +334,8 @@ namespace LearnVulkanRAII
 
     void Renderer::allocateLocalTransferSpace()
     {
-        auto& physicalDevice = m_graphicsContext->getPhysicalDevice();
-        auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
-        auto deviceProperties = physicalDevice.getProperties();
-        size_t minUniformBufferOffsetAlignment = deviceProperties.limits.minUniformBufferOffsetAlignment;
-
         // Initialize local buffer allocation
-        m_localTransferSpace.setBatchInfo(m_allocationBatchInfo,
-            minUniformBufferOffsetAlignment,
-            swapchainImageViews.size());
+        m_localTransferSpace.setBatchInfo(m_allocationBatchInfo);
     }
 
     void Renderer::createBuffers()
@@ -349,11 +357,19 @@ namespace LearnVulkanRAII
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
         // camera view data uniform buffer
-        bufferSize = m_localTransferSpace.getTotalSceneUniformDataSizeInBytes();
-        m_sceneUniformDataBuffer = Buffer::create(
+        bufferSize = sizeof(CameraViewData);
+        m_cameraViewDataBuffer = Buffer::create(
             m_graphicsContext,
             bufferSize,
             vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        // object metadata storage buffer
+        bufferSize = sizeof(ObjectMetadata) * m_allocationBatchInfo.modelCount;
+        m_objectMetadataBuffer = Buffer::create(
+            m_graphicsContext,
+            bufferSize,
+            vk::BufferUsageFlagBits::eStorageBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
     }
 
@@ -361,16 +377,23 @@ namespace LearnVulkanRAII
     {
         auto& device = m_graphicsContext->getDevice();
 
-        vk::DescriptorPoolSize descriptorPoolSize{
-            vk::DescriptorType::eUniformBufferDynamic,
+        vk::DescriptorPoolSize cameraViewDataPoolSize{
+            vk::DescriptorType::eUniformBuffer,
             1,
         };
+
+        vk::DescriptorPoolSize objectMetadataPoolSize{
+            vk::DescriptorType::eStorageBuffer,
+            1
+        };
+
+        std::array poolSizes{ cameraViewDataPoolSize, objectMetadataPoolSize };
 
         vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo{
             vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
             1,
-            1,
-            &descriptorPoolSize
+            static_cast<uint32_t>(poolSizes.size()),
+            poolSizes.data()
         };
 
         m_descriptorPool = device.createDescriptorPool(descriptorPoolCreateInfo);
@@ -389,26 +412,44 @@ namespace LearnVulkanRAII
         m_descriptorSet = device.allocateDescriptorSets(descriptorSetAllocateInfo);
         ASSERT(m_descriptorSet.size(), "Failed to allocate descriptor sets!");
 
-        vk::DescriptorBufferInfo descriptorBufferInfo{
-            *m_sceneUniformDataBuffer->getNativeBuffer(),
+        vk::DescriptorBufferInfo cameraViewDataBufferInfo{
+            *m_cameraViewDataBuffer->getNativeBuffer(),
             0,
-            sizeof(SceneUniformData)
+            sizeof(CameraViewData)
         };
 
-        vk::WriteDescriptorSet writeDescriptorSet{
+        vk::WriteDescriptorSet cameraViewDataWriteDescriptorSet{
             *m_descriptorSet[0],
             0,
             0,
             1,
-            vk::DescriptorType::eUniformBufferDynamic,
+            vk::DescriptorType::eUniformBuffer,
             nullptr,
-            &descriptorBufferInfo
+            &cameraViewDataBufferInfo
         };
 
-        device.updateDescriptorSets(writeDescriptorSet, nullptr);
+        vk::DescriptorBufferInfo objectMetadataBufferInfo{
+            *m_objectMetadataBuffer->getNativeBuffer(),
+            0,
+            sizeof(ObjectMetadata) * m_allocationBatchInfo.modelCount
+        };
+
+        vk::WriteDescriptorSet objectMetadataWriteDescriptorSet{
+            *m_descriptorSet[0],
+            1,
+            0,
+            1,
+            vk::DescriptorType::eStorageBuffer,
+            nullptr,
+            &objectMetadataBufferInfo
+        };
+
+        std::array descriptorWrites{ objectMetadataWriteDescriptorSet, cameraViewDataWriteDescriptorSet };
+
+        device.updateDescriptorSets(descriptorWrites, nullptr);
     }
 
-    void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb, size_t imgIdx) const
+    void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const
     {
         cb.reset();
 
@@ -435,7 +476,7 @@ namespace LearnVulkanRAII
         cb.setScissor(0, scissor);
 
         vk::ClearValue clearValue{
-            vk::ClearColorValue{ std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} }
+            vk::ClearColorValue{ std::array{0.0f, 0.0f, 0.0f, 1.0f} }
         };
 
         vk::RenderPassBeginInfo renderPassInfo{
@@ -461,7 +502,7 @@ namespace LearnVulkanRAII
             **m_pipelineLayout,
             0,
             *m_descriptorSet[0],
-            imgIdx * m_localTransferSpace.uniformBufferAlignment);
+            nullptr);
 
         cb.drawIndexed(static_cast<uint32_t>(m_localTransferSpace.currentIndexCount),
             1, 0, 0, 0);
@@ -479,6 +520,7 @@ namespace LearnVulkanRAII
         auto& presentQueue = m_graphicsContext->getPresentQueue();
         auto& framebuffers = m_framebuffer->getBuffers();
 
+        // TODO: we are processing a single image at a time as per current implementation, however this might change in future
         auto _ = device.waitForFences(**m_inFlightFence, VK_TRUE, UINT64_MAX);
         device.resetFences(**m_inFlightFence);
 
@@ -491,21 +533,19 @@ namespace LearnVulkanRAII
         memcpy(data, m_localTransferSpace.indices, m_localTransferSpace.getCurrentIndicesSizeInBytes());
         m_indexBuffer->unmap();
 
+        data = m_objectMetadataBuffer->map(m_localTransferSpace.getCurrentObjectMetadataSizeInBytes(), 0);
+        memcpy(data, m_localTransferSpace.objectMetadata, m_localTransferSpace.getCurrentObjectMetadataSizeInBytes());
+        m_objectMetadataBuffer->unmap();
+
         auto [result, imageIndex] =
             swapchain.acquireNextImage(UINT64_MAX, **m_imageAvailableSemaphore);
-
-        data = m_sceneUniformDataBuffer->map(m_localTransferSpace.uniformBufferAlignment,
-            imageIndex * m_localTransferSpace.uniformBufferAlignment);
-        // TODO: we are processing a single image at a time as per current implementation, however this might change in future
-        memcpy(data, m_localTransferSpace.sceneUniformData, m_localTransferSpace.uniformBufferAlignment);
-        m_sceneUniformDataBuffer->unmap();
 
         ASSERT(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR,
             "Failed to acquire swapchain image!");
 
         auto& cb = m_commandBuffers[imageIndex];
         auto& fb = framebuffers[imageIndex];
-        recordCommandBuffer(cb, fb, imageIndex);
+        recordCommandBuffer(cb, fb);
 
         vk::SubmitInfo submitInfo{};
 
