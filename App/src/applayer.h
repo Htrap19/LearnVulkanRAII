@@ -55,7 +55,6 @@ private:
 
     Renderer::Shared m_renderer;
     Framebuffer::Shared m_framebuffer;
-    Transform m_transform;
 };
 
 #endif //LEARNVULKANRAII_APPLAYER_H

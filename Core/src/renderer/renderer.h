@@ -34,19 +34,22 @@ namespace LearnVulkanRAII
         glm::mat4 model = glm::mat4(1.0f);
     };
 
-    struct AllocationBatchInfo
+    struct InternalVertex
+    {
+        int objectMetadataIndex = 0;
+    };
+
+    struct BatchAllocationInfo
     {
     public:
         size_t batchSize = 0;
         PrimitiveType primType = PrimitiveType::TRIANGLES;
 
-        /* TODO: Need to implement a way by which we can configure the model count,
-         * which will involve shader code modification programmatically */
         size_t modelCount = 0;
 
     public:
-        AllocationBatchInfo() = default;
-        AllocationBatchInfo(size_t batchSize, size_t modelsCount)
+        BatchAllocationInfo() = default;
+        BatchAllocationInfo(size_t batchSize, size_t modelsCount)
             : batchSize(batchSize), modelCount(modelsCount)
         {
             calculate();
@@ -62,6 +65,7 @@ namespace LearnVulkanRAII
             verticesSize = vertexCount * sizeof(Vertex);
             indicesSize = indexCount * sizeof(uint32_t);
             modelsSize = modelCount * sizeof(ObjectMetadata);
+            internalVerticesSize = verticesSize + sizeof(InternalVertex);
         }
 
         size_t getVertexCount() const { return vertexCount; }
@@ -69,6 +73,7 @@ namespace LearnVulkanRAII
         size_t getVerticesSizeInBytes() const { return verticesSize; }
         size_t getIndicesSizeInBytes() const { return indicesSize; }
         size_t getModelsSizeInBytes() const { return modelsSize; }
+        size_t getInternalVertexSizeInBytes() const { return internalVerticesSize; }
 
     private:
         size_t vertexCount = 0;
@@ -78,6 +83,7 @@ namespace LearnVulkanRAII
         size_t verticesSize = 0;
         size_t indicesSize = 0;
         size_t modelsSize = 0;
+        size_t internalVerticesSize = 0;
     };
 
     struct LocalTransferSpace
@@ -85,14 +91,15 @@ namespace LearnVulkanRAII
         Vertex* vertices = nullptr;
         uint32_t* indices = nullptr;
         ObjectMetadata* objectMetadata = nullptr;
-        AllocationBatchInfo batchInfo;
+        InternalVertex* internalVertices = nullptr;
+        BatchAllocationInfo batchInfo;
 
         size_t currentVertexCount = 0;
         size_t currentIndexCount = 0;
         size_t currentObjectMetadataCount = 0;
 
         LocalTransferSpace() = default;
-        explicit LocalTransferSpace(const AllocationBatchInfo& allocationBatchInfo)
+        explicit LocalTransferSpace(const BatchAllocationInfo& allocationBatchInfo)
             : batchInfo(allocationBatchInfo)
         {
             allocate();
@@ -103,7 +110,7 @@ namespace LearnVulkanRAII
             deAllocate();
         }
 
-        void setBatchInfo(const AllocationBatchInfo& allocationBatchInfo)
+        void setBatchInfo(const BatchAllocationInfo& allocationBatchInfo)
         {
             batchInfo = allocationBatchInfo;
 
@@ -119,6 +126,7 @@ namespace LearnVulkanRAII
             vertices = new Vertex[batchInfo.getVertexCount()];
             indices = new uint32_t[batchInfo.getIndexCount()];
             objectMetadata = new ObjectMetadata[batchInfo.modelCount];
+            internalVertices = new InternalVertex[batchInfo.getVertexCount()];
         }
 
         void deAllocate()
@@ -129,10 +137,13 @@ namespace LearnVulkanRAII
                 delete[] indices;
             if (objectMetadata != nullptr)
                 delete[] objectMetadata;
+            if (internalVertices != nullptr)
+                delete[] internalVertices;
 
             vertices = nullptr;
             indices = nullptr;
             objectMetadata = nullptr;
+            internalVertices = nullptr;
 
             resetCurrentCounts();
         }
@@ -140,6 +151,7 @@ namespace LearnVulkanRAII
         size_t getCurrentVerticesSizeInBytes() const { return currentVertexCount * sizeof(Vertex); }
         size_t getCurrentIndicesSizeInBytes() const { return currentIndexCount * sizeof(uint32_t); }
         size_t getCurrentObjectMetadataSizeInBytes() const { return currentObjectMetadataCount * sizeof(ObjectMetadata); }
+        size_t getCurrentIntervalVerticesSizeInBytes() const { return currentVertexCount * sizeof(InternalVertex); }
 
         size_t getCurrentFaceCounts() const { return currentIndexCount / 3; }
 
@@ -211,8 +223,9 @@ namespace LearnVulkanRAII
         Buffer::Shared m_indexBuffer;
         Buffer::Shared m_cameraViewDataBuffer;
         Buffer::Shared m_objectMetadataBuffer;
+        Buffer::Shared m_internalVertexBuffer;
 
-        AllocationBatchInfo m_allocationBatchInfo;
+        BatchAllocationInfo m_allocationBatchInfo;
         LocalTransferSpace m_localTransferSpace;
     };
 } // LearnVulkanRAII

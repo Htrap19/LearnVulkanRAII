@@ -9,6 +9,8 @@
 
 #include <glm/glm.hpp>
 
+#include <algorithm>
+
 namespace LearnVulkanRAII
 {
     Renderer::Renderer(const GraphicsContext::Shared& graphicsContext)
@@ -46,8 +48,14 @@ namespace LearnVulkanRAII
 
         // TODO: Need to find a better way instead of just copying memory on each draw call
         size_t indexOffset = m_localTransferSpace.currentVertexCount;
-        std::memcpy((m_localTransferSpace.vertices + indexOffset),
-            mesh.vertices.data(), mesh.getVerticesSizeInBytes());
+        memcpy((m_localTransferSpace.vertices + indexOffset),
+            mesh.vertices.data(),
+            mesh.getVerticesSizeInBytes());
+
+        std::fill_n(m_localTransferSpace.internalVertices + indexOffset,
+            sizeof(InternalVertex) * mesh.getVerticesCount(),
+            InternalVertex{ static_cast<int>(m_localTransferSpace.currentObjectMetadataCount) });
+
         m_localTransferSpace.currentVertexCount += mesh.getVerticesCount();
 
         for (const auto idx : mesh.indices)
@@ -69,7 +77,7 @@ namespace LearnVulkanRAII
         auto& device = m_graphicsContext->getDevice();
         device.waitIdle();
         size_t currentModelCount = m_allocationBatchInfo.modelCount;
-        m_allocationBatchInfo = AllocationBatchInfo(batchSize, currentModelCount);
+        m_allocationBatchInfo = BatchAllocationInfo(batchSize, currentModelCount);
 
         allocateLocalTransferSpace();
         createBuffers(); // re-create the buffers
@@ -209,6 +217,13 @@ namespace LearnVulkanRAII
             sizeof(Vertex),
         };
 
+        vk::VertexInputBindingDescription internalVertexInputBindingDescription{
+            1,
+            sizeof(InternalVertex),
+        };
+
+        std::array vertexInputBindings{ vertexInputBindingDescription, internalVertexInputBindingDescription };
+
         vk::VertexInputAttributeDescription vertexInputAttributeDescription{
             0,
             0,
@@ -216,8 +231,17 @@ namespace LearnVulkanRAII
             offsetof(Vertex, position)
         };
 
-        vertexInputInfo.setVertexBindingDescriptions(vertexInputBindingDescription);
-        vertexInputInfo.setVertexAttributeDescriptions(vertexInputAttributeDescription);
+        vk::VertexInputAttributeDescription internalVertexInputAttributeDescription{
+            1,
+            1,
+            vk::Format::eR32Sint,
+            0
+        };
+
+        std::array vertexInputAttributeDescriptions{ vertexInputAttributeDescription, internalVertexInputAttributeDescription };
+
+        vertexInputInfo.setVertexBindingDescriptions(vertexInputBindings);
+        vertexInputInfo.setVertexAttributeDescriptions(vertexInputAttributeDescriptions);
 
         vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
             {},
@@ -371,6 +395,14 @@ namespace LearnVulkanRAII
             bufferSize,
             vk::BufferUsageFlagBits::eStorageBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        // internal vertex buffer
+        bufferSize = m_allocationBatchInfo.getInternalVertexSizeInBytes();
+        m_internalVertexBuffer = Buffer::create(
+            m_graphicsContext,
+            bufferSize,
+            vk::BufferUsageFlagBits::eVertexBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
     }
 
     void Renderer::createDescriptorPool()
@@ -491,8 +523,8 @@ namespace LearnVulkanRAII
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_graphicsPipeline);
 
-        vk::Buffer vertexBuffers[] = { *m_vertexBuffer->getNativeBuffer() };
-        vk::DeviceSize offsets[] = { 0 };
+        vk::Buffer vertexBuffers[] = { *m_vertexBuffer->getNativeBuffer(), *m_internalVertexBuffer->getNativeBuffer() };
+        vk::DeviceSize offsets[] = { 0, 0 };
         cb.bindVertexBuffers(0, vertexBuffers, offsets);
 
         cb.bindIndexBuffer(*m_indexBuffer->getNativeBuffer(), 0, vk::IndexType::eUint32);
@@ -536,6 +568,10 @@ namespace LearnVulkanRAII
         data = m_objectMetadataBuffer->map(m_localTransferSpace.getCurrentObjectMetadataSizeInBytes(), 0);
         memcpy(data, m_localTransferSpace.objectMetadata, m_localTransferSpace.getCurrentObjectMetadataSizeInBytes());
         m_objectMetadataBuffer->unmap();
+
+        data = m_internalVertexBuffer->map(m_localTransferSpace.getCurrentIntervalVerticesSizeInBytes(), 0);
+        memcpy(data, m_localTransferSpace.internalVertices, m_localTransferSpace.getCurrentIntervalVerticesSizeInBytes());
+        m_internalVertexBuffer->unmap();
 
         auto [result, imageIndex] =
             swapchain.acquireNextImage(UINT64_MAX, **m_imageAvailableSemaphore);

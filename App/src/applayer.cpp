@@ -12,6 +12,8 @@
 
 static Mesh s_quadMesh1;
 static Mesh s_quadMesh2;
+static Transform s_quadMesh1Transform;
+static Transform s_quadMesh2Transform;
 
 AppLayer::AppLayer(AppWindow* parent)
     : m_parent(parent)
@@ -66,12 +68,13 @@ void AppLayer::onUpdate(Timestep ts)
     cm.view = glm::lookAt(glm::vec3(0.0f, 2.0f, 1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     cm.projection[1][1] *= -1; // Invert Y for Vulkan
 
-    static float angle = 10.0f;
-    m_transform.rotate.x += glm::radians(angle * ts);
+    static float angle = 30.0f;
+    s_quadMesh1Transform.rotate.x += glm::radians(angle * ts);
+    s_quadMesh2Transform.rotate.x -= glm::radians(angle * ts);
 
     m_renderer->beginFrame(m_framebuffer, cm);
-    m_renderer->drawMesh(s_quadMesh1, m_transform);
-    m_renderer->drawMesh(s_quadMesh2, m_transform);
+    m_renderer->drawMesh(s_quadMesh1, s_quadMesh1Transform);
+    m_renderer->drawMesh(s_quadMesh2, s_quadMesh2Transform);
     m_renderer->endFrame();
 }
 
