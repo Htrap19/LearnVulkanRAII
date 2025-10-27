@@ -4,6 +4,8 @@
 
 #include "buffer.h"
 
+#include "renderer/utils/utils.h"
+
 namespace LearnVulkanRAII
 {
     Buffer::Buffer(const GraphicsContext::Shared& graphicsContext,
@@ -82,7 +84,8 @@ namespace LearnVulkanRAII
         m_buffer = device.createBuffer(bufferCreateInfo);
 
         auto memRequirements = device.getBufferMemoryRequirements({ &bufferCreateInfo });
-        uint32_t memoryType = findMemoryType(memRequirements.memoryRequirements.memoryTypeBits, m_memoryPropertyFlags);
+        uint32_t memoryType = m_graphicsContext->findMemoryType(
+            memRequirements.memoryRequirements.memoryTypeBits, m_memoryPropertyFlags);
 
         vk::MemoryAllocateInfo allocInfo{
             memRequirements.memoryRequirements.size,
@@ -97,20 +100,5 @@ namespace LearnVulkanRAII
         };
 
         device.bindBufferMemory2(bindBufferMemoryInfo);
-    }
-
-    uint32_t Buffer::findMemoryType(uint32_t typeFilters, vk::MemoryPropertyFlags properties) const
-    {
-        auto& physicalDevice = m_graphicsContext->getPhysicalDevice();
-        auto memProperties = physicalDevice.getMemoryProperties();
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-        {
-            if ((typeFilters & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-                return i;
-        }
-
-        ASSERT(false, "Failed to find suitable memory type!");
-        return 0;
     }
 } // LearnVulkanRAII

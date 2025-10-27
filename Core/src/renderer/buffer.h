@@ -37,8 +37,6 @@ namespace LearnVulkanRAII
     private:
         void init();
 
-        uint32_t findMemoryType(uint32_t typeFilters, vk::MemoryPropertyFlags properties) const;
-
     private:
         GraphicsContext::Shared m_graphicsContext;
         vk::DeviceSize m_bufferSize;

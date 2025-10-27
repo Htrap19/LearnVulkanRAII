@@ -93,6 +93,40 @@ namespace LearnVulkanRAII
         return m_physicalDevice->getSurfaceCapabilitiesKHR(**m_surface);
     }
 
+    uint32_t GraphicsContext::findMemoryType(uint32_t typeBits, vk::MemoryPropertyFlags properties) const
+    {
+        auto memProperties = m_physicalDevice->getMemoryProperties();
+
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+        {
+            if ((typeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+                return i;
+        }
+
+        ASSERT(false, "Failed to find suitable memory type!");
+        return 0;
+    }
+
+    vk::Format GraphicsContext::findDepthFormat() const
+    {
+        static std::vector candidates = {
+            vk::Format::eD32SfloatS8Uint,
+            vk::Format::eD24UnormS8Uint,
+            vk::Format::eD32Sfloat,
+        };
+
+        for (auto& format : candidates)
+        {
+            auto props = m_physicalDevice->getFormatProperties(format);
+            if ((props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) ==
+                vk::FormatFeatureFlagBits::eDepthStencilAttachment)
+                return format;
+        }
+
+        ASSERT(false, "Failed to find suitable depth format!");
+        return vk::Format::eUndefined;
+    }
+
     GraphicsContext::Shared GraphicsContext::create(Window* window)
     {
         return Utils::makeShared<GraphicsContext>(window);
@@ -296,7 +330,7 @@ namespace LearnVulkanRAII
                 { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
             };
 
-            m_swapchainImageViews.push_back(m_device->createImageView(viewCreateInfo));
+            m_swapchainImageViews.emplace_back(*m_device, viewCreateInfo);
         }
     }
 

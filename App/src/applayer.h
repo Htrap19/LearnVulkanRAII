@@ -54,7 +54,6 @@ private:
     AppWindow* m_parent;
 
     Renderer::Shared m_renderer;
-    Framebuffer::Shared m_framebuffer;
 };
 
 #endif //LEARNVULKANRAII_APPLAYER_H

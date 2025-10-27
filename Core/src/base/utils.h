@@ -24,6 +24,8 @@ namespace LearnVulkanRAII::Utils
     template <typename T>
     using Optional = std::optional<T>;
 
+    inline std::nullopt_t NullOptional = std::nullopt;
+
     template<typename T, typename ... Args>
     Unique<T> makeUnique(Args... args)
     {

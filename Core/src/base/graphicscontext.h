@@ -5,6 +5,8 @@
 #ifndef LEARNVULKANRAII_GRAPHICSCONTEXT_H
 #define LEARNVULKANRAII_GRAPHICSCONTEXT_H
 
+#include <set>
+
 #include "utils.h"
 
 #include <vulkan/vulkan_raii.hpp>
@@ -44,6 +46,8 @@ namespace LearnVulkanRAII
 
         // Utility functions
         [[nodiscard]] vk::SurfaceCapabilitiesKHR getSurfaceCapabilities() const;
+        [[nodiscard]] uint32_t findMemoryType(uint32_t typeBits, vk::MemoryPropertyFlags properties) const;
+        [[nodiscard]] vk::Format findDepthFormat() const;
 
         static Shared create(Window* window);
 

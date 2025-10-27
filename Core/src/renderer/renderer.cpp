@@ -20,7 +20,12 @@ namespace LearnVulkanRAII
         init();
     }
 
-    void Renderer::beginFrame(const Framebuffer::Shared& framebuffer, const CameraViewData& cameraData)
+    void Renderer::beginFrame(const CameraViewData &cameraData)
+    {
+        beginFrame(m_defaultFramebuffer, cameraData);
+    }
+
+    void Renderer::beginFrame(const SwapchainFramebuffer::Shared& framebuffer, const CameraViewData& cameraData)
     {
         auto& framebuffers = framebuffer->getBuffers();
         ASSERT(m_commandBuffers.size() == framebuffers.size(), "Framebuffer seems incompatible!");
@@ -70,6 +75,7 @@ namespace LearnVulkanRAII
     {
         // As per current implementation, there is nothing much to handle on resize.
         // However, this function is kept for future use
+        m_defaultFramebuffer->resize(width, height);
     }
 
     void Renderer::setBatchSize(size_t batchSize)
@@ -105,6 +111,7 @@ namespace LearnVulkanRAII
         createBuffers();
         createDescriptorPool();
         allocateDescriptorSets();
+        createDefaultFramebuffer();
     }
 
     void Renderer::createRenderPass()
@@ -112,7 +119,7 @@ namespace LearnVulkanRAII
         auto swapchainImageFormat = m_graphicsContext->getSwapchainImageFormat();
         auto& device = m_graphicsContext->getDevice();
 
-        vk::AttachmentDescription colorAttachment = {
+        vk::AttachmentDescription colorAttachment{
             {},
             swapchainImageFormat,
             vk::SampleCountFlagBits::e1,
@@ -124,20 +131,36 @@ namespace LearnVulkanRAII
             vk::ImageLayout::ePresentSrcKHR
         };
 
-        vk::AttachmentReference colorAttachmentRef = {
-            0, vk::ImageLayout::eColorAttachmentOptimal
+        vk::Format depthFormat = m_graphicsContext->findDepthFormat();
+        vk::AttachmentDescription depthAttachment{
+            {},
+            depthFormat,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore,
+            vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal
         };
 
-        vk::SubpassDescription subpass = {
+        std::array attachments{colorAttachment, depthAttachment};
+
+        vk::AttachmentReference colorAttachmentRef{0, vk::ImageLayout::eColorAttachmentOptimal};
+        vk::AttachmentReference depthAttachmentRef{1, vk::ImageLayout::eDepthStencilAttachmentOptimal};
+
+        vk::SubpassDescription subpass{
             {},
             vk::PipelineBindPoint::eGraphics,
             0,
             nullptr,
             1,
             &colorAttachmentRef,
+            nullptr,
+            &depthAttachmentRef,
         };
 
-        vk::SubpassDependency dependency = {
+        vk::SubpassDependency dependency{
             VK_SUBPASS_EXTERNAL,
             0,
             vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -146,10 +169,10 @@ namespace LearnVulkanRAII
             vk::AccessFlagBits::eColorAttachmentWrite,
         };
 
-        vk::RenderPassCreateInfo renderPassInfo = {
+        vk::RenderPassCreateInfo renderPassInfo{
             {},
-            1,
-            &colorAttachment,
+            static_cast<uint32_t>(attachments.size()),
+            attachments.data(),
             1,
             &subpass,
             1,
@@ -277,6 +300,19 @@ namespace LearnVulkanRAII
             VK_FALSE
         };
 
+        vk::PipelineDepthStencilStateCreateInfo depthStencilState{
+            {},
+            VK_TRUE,
+            VK_TRUE,
+            vk::CompareOp::eLess,
+            VK_FALSE,
+            VK_FALSE,
+            {},
+            {},
+            0.0f,
+            1.0f
+        };
+
         vk::PipelineColorBlendAttachmentState colorBlendAttachment{
             VK_FALSE,
             vk::BlendFactor::eOne,
@@ -317,7 +353,7 @@ namespace LearnVulkanRAII
             &viewportState,
             &rasterizer,
             &multisampling,
-            nullptr,
+            &depthStencilState,
             &colorBlending,
             &dynamicStateCreateInfo,
             **m_pipelineLayout,
@@ -481,7 +517,21 @@ namespace LearnVulkanRAII
         device.updateDescriptorSets(descriptorWrites, nullptr);
     }
 
-    void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const
+    void Renderer::createDefaultFramebuffer()
+    {
+        vk::Format depthFormat = m_graphicsContext->findDepthFormat();
+        FramebufferAttachmentInfo depthAttachmentInfo{
+            depthFormat,
+            vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            vk::ImageAspectFlagBits::eDepth,
+            vk::ClearValue( vk::ClearDepthStencilValue(1.0f, 0) )
+        };
+        m_defaultFramebuffer = SwapchainFramebuffer::makeShared(m_graphicsContext,
+            *m_renderPass,
+            depthAttachmentInfo);
+    }
+
+    void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const Framebuffer::Shared& fb) const
     {
         cb.reset();
 
@@ -507,16 +557,14 @@ namespace LearnVulkanRAII
         cb.setViewport(0, viewport);
         cb.setScissor(0, scissor);
 
-        vk::ClearValue clearValue{
-            vk::ClearColorValue{ std::array{0.0f, 0.0f, 0.0f, 1.0f} }
-        };
+        const auto& clearValues = fb->getClearValues();
 
         vk::RenderPassBeginInfo renderPassInfo{
             **m_renderPass,
-            *fb,
+            *(fb->getBuffer()),
             { { 0, 0 }, swapchainExtent },
-            1,
-            &clearValue
+            static_cast<uint32_t>(clearValues.size()),
+            clearValues.data()
         };
 
         cb.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
@@ -593,14 +641,15 @@ namespace LearnVulkanRAII
 
         graphicsQueue.submit(submitInfo, **m_inFlightFence);
 
+        // Reset local allocation counts
+        m_localTransferSpace.resetCurrentCounts();
+
+        // TODO: This should have it's own function
         vk::PresentInfoKHR presentInfo{};
         presentInfo.setWaitSemaphores(**m_renderFinishedSemaphore);
         presentInfo.setSwapchains(*swapchain);
         presentInfo.setImageIndices(imageIndex);
 
         _ = presentQueue.presentKHR(presentInfo);
-
-        // Reset local allocation counts
-        m_localTransferSpace.resetCurrentCounts();
     }
 } // LearnVulkanRAII

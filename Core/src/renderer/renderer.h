@@ -171,7 +171,8 @@ namespace LearnVulkanRAII
     public:
         explicit Renderer(const GraphicsContext::Shared& graphicsContext);
 
-        void beginFrame(const Framebuffer::Shared& framebuffer, const CameraViewData& cameraData);
+        void beginFrame(const CameraViewData& cameraData);
+        void beginFrame(const SwapchainFramebuffer::Shared& framebuffer, const CameraViewData& cameraData);
         void endFrame();
 
         void drawMesh(const Mesh& mesh, const Transform& transform);
@@ -179,7 +180,7 @@ namespace LearnVulkanRAII
         void resize(uint32_t width, uint32_t height);
 
         void setBatchSize(size_t batchSize);
-        size_t getBatchSize() const;
+        [[nodiscard]] size_t getBatchSize() const;
 
         [[nodiscard]] const vk::raii::RenderPass& getRenderPass() const;
 
@@ -199,8 +200,9 @@ namespace LearnVulkanRAII
         void createBuffers();
         void createDescriptorPool();
         void allocateDescriptorSets();
+        void createDefaultFramebuffer();
 
-        void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const vk::raii::Framebuffer& fb) const;
+        void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const Framebuffer::Shared& fb) const;
 
         void drawFrame();
 
@@ -218,7 +220,8 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::DescriptorPool> m_descriptorPool;
         std::vector<vk::raii::DescriptorSet> m_descriptorSet;
 
-        Framebuffer::Shared m_framebuffer;
+        SwapchainFramebuffer::Shared m_defaultFramebuffer;
+        SwapchainFramebuffer::Shared m_framebuffer;
         Buffer::Shared m_vertexBuffer;
         Buffer::Shared m_indexBuffer;
         Buffer::Shared m_cameraViewDataBuffer;
