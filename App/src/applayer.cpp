@@ -9,6 +9,7 @@
 
 #include <print>
 #include <functional>
+#include <iostream>
 
 static Mesh s_cubeMesh;
 static Transform s_cubeMeshTransform;
@@ -83,6 +84,39 @@ void AppLayer::onUpdate(Timestep ts)
     s_cubeMeshTransform.rotate.y += glm::radians(angle * ts);
 
     m_renderer->beginFrame(cm);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
     m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
     m_renderer->endFrame();
 }

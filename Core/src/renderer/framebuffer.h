@@ -56,6 +56,8 @@ namespace LearnVulkanRAII
         [[nodiscard]] const vk::raii::Framebuffer& getBuffer() const;
         [[nodiscard]] const std::vector<vk::ClearValue>& getClearValues() const;
 
+        const FramebufferSpecification& getFramebufferSpecification() const;
+
     private:
         void init();
 

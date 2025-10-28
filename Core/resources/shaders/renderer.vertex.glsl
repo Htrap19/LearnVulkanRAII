@@ -24,6 +24,8 @@ layout (std140, set = 0, binding = 1) readonly buffer ObjectMetadataBuffer
     ObjectMetadata metadata[];
 } b_objectMetadataBuffer;
 
+layout (location = 0) out vec3 v_color;
+
 void main()
 {
     mat4 proj = u_cameraViewDataBuffer.cameraViewData.projection;
@@ -31,4 +33,5 @@ void main()
     mat4 model = b_objectMetadataBuffer.metadata[a_objectMetadataIndex].model;
 
     gl_Position = proj * view * model * vec4(a_pos, 1.0);
+    v_color = a_pos;
 }

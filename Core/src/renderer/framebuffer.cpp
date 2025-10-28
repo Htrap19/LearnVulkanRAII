@@ -88,6 +88,11 @@ namespace LearnVulkanRAII
         return m_clearValues;
     }
 
+    const FramebufferSpecification& Framebuffer::getFramebufferSpecification() const
+    {
+        return m_spec;
+    }
+
     void Framebuffer::init()
     {
         // TODO: Need to check for the attachment order from the RenderPass
@@ -191,6 +196,7 @@ namespace LearnVulkanRAII
         m_framebuffers.clear();
 
         auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
+        auto swapchainImageFormat = m_graphicsContext->getSwapchainImageFormat();
 
         // Generate specifications
         std::vector<FramebufferSpecification> swapchainFramebufferSpecifications;
@@ -201,7 +207,7 @@ namespace LearnVulkanRAII
             m_spec.width = swapchainExtent.width;
             m_spec.height = swapchainExtent.height;
 
-            for (size_t i = 0; i < swapchainImageViews.size(); i++)
+            for (const auto & swapchainImageView : swapchainImageViews)
             {
                 FramebufferSpecification spec{
                     m_spec.width,
@@ -209,12 +215,15 @@ namespace LearnVulkanRAII
                 };
 
                 // Create a swapchain image view attachment info
-                vk::ImageView ivRaw = *swapchainImageViews[i];
+                vk::ImageView ivRaw = *swapchainImageView;
                 FramebufferAttachmentInfo swapchainImageAttachmentInfo;
-                swapchainImageAttachmentInfo.existingImageView = ivRaw;
+                swapchainImageAttachmentInfo.format = swapchainImageFormat;
+                swapchainImageAttachmentInfo.usageFlags = vk::ImageUsageFlagBits::eColorAttachment;
+                swapchainImageAttachmentInfo.aspectFlags = vk::ImageAspectFlagBits::eColor;
                 swapchainImageAttachmentInfo.clearValue = vk::ClearValue{
                     vk::ClearColorValue(std::array{ 0.0f, 0.0f, 0.0f, 1.0f })
                 };
+                swapchainImageAttachmentInfo.existingImageView = ivRaw;
 
                 // TODO: Somehow need to handle the order of the attachments based on the RenderPass attachment order
                 spec.attachments.emplace_back(swapchainImageAttachmentInfo);

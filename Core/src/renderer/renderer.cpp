@@ -27,9 +27,33 @@ namespace LearnVulkanRAII
 
     void Renderer::beginFrame(const SwapchainFramebuffer::Shared& framebuffer, const CameraViewData& cameraData)
     {
+        auto& device = m_graphicsContext->getDevice();
+        auto& swapchain = m_graphicsContext->getSwapchain();
+
         auto& framebuffers = framebuffer->getBuffers();
-        ASSERT(m_commandBuffers.size() == framebuffers.size(), "Framebuffer seems incompatible!");
+        ASSERT(m_commandPools.size() == framebuffers.size(), "Framebuffer seems incompatible!");
         m_framebuffer = framebuffer;
+
+        auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
+        auto _ = device.waitForFences(**frameContext.inFlightFence, VK_TRUE, UINT64_MAX);
+        device.resetFences(**frameContext.inFlightFence);
+
+        // reset the statistics
+        m_stats.reset();
+
+        // reset frame context counts
+        frameContext.resetCounts();
+
+        auto [result, imageIndex] =
+            swapchain.acquireNextImage(UINT64_MAX, **frameContext.imageAvailableSemaphore);
+
+        ASSERT(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR,
+            "Failed to acquire swapchain image!");
+
+        frameContext.imageIndex = imageIndex;
+
+        // reset the command buffers of this frame
+        m_commandPools[imageIndex]->reset();
 
         // Copy the per-frame camera view data
         void* data = m_cameraViewDataBuffer->map();
@@ -39,7 +63,12 @@ namespace LearnVulkanRAII
 
     void Renderer::endFrame()
     {
-        drawFrame();
+        auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
+        frameContext.isLastDrawCall = true;
+
+        draw();
+        presentFrame();
+        // m_inFlightFrameManager.nextFrame();
     }
 
     void Renderer::drawMesh(const Mesh& mesh, const Transform& transform)
@@ -48,7 +77,7 @@ namespace LearnVulkanRAII
             m_localTransferSpace.currentObjectMetadataCount >= m_allocationBatchInfo.modelCount)
         {
             // flush
-            drawFrame();
+            draw();
         }
 
         // TODO: Need to find a better way instead of just copying memory on each draw call
@@ -94,6 +123,11 @@ namespace LearnVulkanRAII
         return m_allocationBatchInfo.batchSize;
     }
 
+    const RendererStatistics& Renderer::getStats() const
+    {
+        return m_stats;
+    }
+
     const vk::raii::RenderPass& Renderer::getRenderPass() const
     {
         return *m_renderPass;
@@ -104,7 +138,7 @@ namespace LearnVulkanRAII
         createRenderPass();
         createDescriptorSetLayout();
         createGraphicsPipeline();
-        allocateCommandBuffers();
+        createCommandPools();
         createSyncObjects();
 
         allocateLocalTransferSpace();
@@ -123,11 +157,11 @@ namespace LearnVulkanRAII
             {},
             swapchainImageFormat,
             vk::SampleCountFlagBits::e1,
-            vk::AttachmentLoadOp::eClear,
+            vk::AttachmentLoadOp::eLoad,
             vk::AttachmentStoreOp::eStore,
             vk::AttachmentLoadOp::eDontCare,
             vk::AttachmentStoreOp::eDontCare,
-            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR,
             vk::ImageLayout::ePresentSrcKHR
         };
 
@@ -136,11 +170,11 @@ namespace LearnVulkanRAII
             {},
             depthFormat,
             vk::SampleCountFlagBits::e1,
-            vk::AttachmentLoadOp::eClear,
+            vk::AttachmentLoadOp::eLoad,
             vk::AttachmentStoreOp::eStore,
-            vk::AttachmentLoadOp::eClear,
+            vk::AttachmentLoadOp::eLoad,
             vk::AttachmentStoreOp::eStore,
-            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
             vk::ImageLayout::eDepthStencilAttachmentOptimal
         };
 
@@ -286,7 +320,7 @@ namespace LearnVulkanRAII
             VK_FALSE,
             vk::PolygonMode::eFill,
             vk::CullModeFlagBits::eBack,
-            vk::FrontFace::eClockwise,
+            vk::FrontFace::eCounterClockwise,
             VK_FALSE,
             0,
             0,
@@ -366,30 +400,43 @@ namespace LearnVulkanRAII
         m_graphicsPipeline = device.createGraphicsPipeline(VK_NULL_HANDLE, graphicsPipelineCreateInfo);
     }
 
-    void Renderer::allocateCommandBuffers()
+    void Renderer::createCommandPools()
     {
-        auto& commandPool = m_graphicsContext->getCommandPool();
+        m_commandPools.clear();
+
+        // Create renderer command pool per swapchain image
         auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
-        auto& device = m_graphicsContext->getDevice();
+        m_commandPools.reserve(swapchainImageViews.size());
 
-        vk::CommandBufferAllocateInfo allocInfo{
-            *commandPool,
-            vk::CommandBufferLevel::ePrimary,
-            static_cast<uint32_t>(swapchainImageViews.size())
-        };
-
-        m_commandBuffers = device.allocateCommandBuffers(allocInfo);
+        for (size_t i = 0; i < swapchainImageViews.size(); ++i)
+        {
+            m_commandPools.emplace_back(RendererCommandPool::makeShared(m_graphicsContext));
+        }
     }
 
     void Renderer::createSyncObjects()
     {
         auto& device = m_graphicsContext->getDevice();
+        auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
 
-        m_imageAvailableSemaphore = device.createSemaphore({});
-        m_renderFinishedSemaphore = device.createSemaphore({});
+        m_inFlightFrameManager = InFlightFrameManager(static_cast<uint32_t>(swapchainImageViews.size()));
 
         vk::FenceCreateInfo fenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled };
-        m_inFlightFence = device.createFence(fenceCreateInfo);
+
+        for (size_t i = 0; i < swapchainImageViews.size(); i++)
+        {
+            auto& frame = m_inFlightFrameManager.frames.emplace_back();
+            frame.imageAvailableSemaphore = device.createSemaphore({});
+            frame.renderFinishedSemaphore = device.createSemaphore({});
+            frame.inFlightFence = device.createFence(fenceCreateInfo);
+
+            // TODO: This needs to be properly handled, because we can have n number of draw calls in a single frame.
+            frame.batchSemaphores.reserve(m_allocationBatchInfo.modelCount);
+            for (size_t j = 0; j < m_allocationBatchInfo.modelCount; j++)
+            {
+                frame.batchSemaphores.emplace_back(device, vk::SemaphoreCreateInfo{});
+            }
+        }
     }
 
     void Renderer::allocateLocalTransferSpace()
@@ -531,8 +578,11 @@ namespace LearnVulkanRAII
             depthAttachmentInfo);
     }
 
-    void Renderer::recordCommandBuffer(const vk::raii::CommandBuffer& cb, const Framebuffer::Shared& fb) const
+    void Renderer::recordCommandBuffer(const Framebuffer::Shared& fb) const
     {
+        const auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
+        const auto& cb = m_commandPools[frameContext.imageIndex]->getNextAvailablePrimaryCommandBuffer();
+
         cb.reset();
 
         vk::CommandBufferBeginInfo beginInfo{};
@@ -563,11 +613,36 @@ namespace LearnVulkanRAII
             **m_renderPass,
             *(fb->getBuffer()),
             { { 0, 0 }, swapchainExtent },
-            static_cast<uint32_t>(clearValues.size()),
-            clearValues.data()
+            0,
+            nullptr
         };
 
         cb.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+
+        if (frameContext.drawCallCount == 0) // Very first draw call
+        {
+            // Clear the attachments
+            auto& framebufferSpec = fb->getFramebufferSpecification();
+            std::vector<vk::ClearAttachment> clearAttachments{};
+            clearAttachments.reserve(clearValues.size());
+
+            for (size_t i = 0; i < clearValues.size(); ++i)
+            {
+                auto& attachmentInfo = framebufferSpec.attachments[i];
+                clearAttachments.emplace_back(
+                    attachmentInfo.aspectFlags,
+                    static_cast<uint32_t>(i),
+                    attachmentInfo.clearValue
+                );
+            }
+
+            vk::ClearRect clearRect{
+                vk::Rect2D{ {0, 0}, swapchainExtent },
+                0, 1
+            };
+
+            cb.clearAttachments(clearAttachments, clearRect);
+        }
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_graphicsPipeline);
 
@@ -591,18 +666,16 @@ namespace LearnVulkanRAII
         cb.end();
     }
 
-    void Renderer::drawFrame()
+    void Renderer::draw()
     {
-        // Draw a frame
-        auto& device = m_graphicsContext->getDevice();
-        auto& swapchain = m_graphicsContext->getSwapchain();
         auto& graphicsQueue = m_graphicsContext->getGraphicsQueue();
-        auto& presentQueue = m_graphicsContext->getPresentQueue();
+        auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
         auto& framebuffers = m_framebuffer->getBuffers();
 
-        // TODO: we are processing a single image at a time as per current implementation, however this might change in future
-        auto _ = device.waitForFences(**m_inFlightFence, VK_TRUE, UINT64_MAX);
-        device.resetFences(**m_inFlightFence);
+        // Record the commands
+        const auto& frameCommandPool = m_commandPools[frameContext.imageIndex];
+        auto& fb = framebuffers[frameContext.imageIndex];
+        recordCommandBuffer(fb);
 
         // Copy from local allocation to the dedicated vk buffers
         void* data = m_vertexBuffer->map(m_localTransferSpace.getCurrentVerticesSizeInBytes(), 0);
@@ -621,35 +694,61 @@ namespace LearnVulkanRAII
         memcpy(data, m_localTransferSpace.internalVertices, m_localTransferSpace.getCurrentIntervalVerticesSizeInBytes());
         m_internalVertexBuffer->unmap();
 
-        auto [result, imageIndex] =
-            swapchain.acquireNextImage(UINT64_MAX, **m_imageAvailableSemaphore);
-
-        ASSERT(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR,
-            "Failed to acquire swapchain image!");
-
-        auto& cb = m_commandBuffers[imageIndex];
-        auto& fb = framebuffers[imageIndex];
-        recordCommandBuffer(cb, fb);
-
         vk::SubmitInfo submitInfo{};
+
+        vk::Semaphore waitSemaphore, signalSemaphore;
+        if (frameContext.drawCallCount == 0 && frameContext.isLastDrawCall) // First and last draw call
+        {
+            waitSemaphore = **frameContext.imageAvailableSemaphore;
+            signalSemaphore = **frameContext.renderFinishedSemaphore;
+        }
+        else if (frameContext.drawCallCount == 0) // Very first draw call but not the last
+        {
+            waitSemaphore = **frameContext.imageAvailableSemaphore;
+            signalSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount];
+        }
+        else if (frameContext.isLastDrawCall) // Very last draw call
+        {
+            waitSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount - 1];
+            signalSemaphore = **frameContext.renderFinishedSemaphore;
+        }
+        else
+        {
+            waitSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount - 1];
+            signalSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount];;
+        }
 
         vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
         submitInfo.setWaitDstStageMask(waitStages);
-        submitInfo.setWaitSemaphores(**m_imageAvailableSemaphore);
-        submitInfo.setCommandBuffers(*cb);
-        submitInfo.setSignalSemaphores(**m_renderFinishedSemaphore);
+        submitInfo.setWaitSemaphores(waitSemaphore);
+        submitInfo.setCommandBuffers(frameCommandPool->getRawPrimaryCommandBuffers());
+        submitInfo.setSignalSemaphores(signalSemaphore);
 
-        graphicsQueue.submit(submitInfo, **m_inFlightFence);
+        graphicsQueue.submit(submitInfo, **frameContext.inFlightFence);
+
+        // Update the frame context counts
+        frameContext.drawCallCount++;
+
+        // Update the statistics
+        m_stats.totalDrawCallsCount++;
+        m_stats.totalVertexCount += m_localTransferSpace.currentVertexCount;
+        m_stats.totalIndexCount += m_localTransferSpace.currentIndexCount;
 
         // Reset local allocation counts
         m_localTransferSpace.resetCurrentCounts();
+    }
 
-        // TODO: This should have it's own function
+    void Renderer::presentFrame()
+    {
+        auto& swapchain = m_graphicsContext->getSwapchain();
+        auto& presentQueue = m_graphicsContext->getPresentQueue();
+        const auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
+
         vk::PresentInfoKHR presentInfo{};
-        presentInfo.setWaitSemaphores(**m_renderFinishedSemaphore);
+        presentInfo.setWaitSemaphores(**frameContext.renderFinishedSemaphore);
         presentInfo.setSwapchains(*swapchain);
-        presentInfo.setImageIndices(imageIndex);
+        presentInfo.setImageIndices(frameContext.imageIndex);
 
-        _ = presentQueue.presentKHR(presentInfo);
+        auto _ = presentQueue.presentKHR(presentInfo);
     }
 } // LearnVulkanRAII

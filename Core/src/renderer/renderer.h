@@ -12,6 +12,7 @@
 
 #include "framebuffer.h"
 #include "buffer.h"
+#include "renderercommandpool.h"
 
 #include <vulkan/vulkan_raii.hpp>
 
@@ -163,6 +164,53 @@ namespace LearnVulkanRAII
         }
     };
 
+    struct FrameContext
+    {
+        uint32_t imageIndex; // swapchain acquired image index
+        Utils::Optional<vk::raii::Semaphore> imageAvailableSemaphore;
+        Utils::Optional<vk::raii::Semaphore> renderFinishedSemaphore;
+        Utils::Optional<vk::raii::Fence> inFlightFence;
+        std::vector<vk::raii::Semaphore> batchSemaphores;
+
+        size_t drawCallCount = 0;
+        bool isLastDrawCall = false;
+
+        void resetCounts() { drawCallCount = 0, isLastDrawCall = false; }
+    };
+
+    struct InFlightFrameManager
+    {
+    public:
+        std::vector<FrameContext> frames;
+
+    public:
+        InFlightFrameManager() = default;
+        explicit InFlightFrameManager(uint32_t maxFramesInFlight)
+            : maxFramesInFlight(maxFramesInFlight)
+        {
+            frames.reserve(maxFramesInFlight);
+        }
+
+        uint32_t getCurrentFrameIndex() const { return currentFrameIndex; }
+        void nextFrame() { currentFrameIndex = (currentFrameIndex + 1) % maxFramesInFlight; }
+        const FrameContext& getCurrentFrameContext() const { return frames[currentFrameIndex]; }
+        FrameContext& getCurrentFrameContext() { return frames[currentFrameIndex]; }
+
+    private:
+        uint32_t currentFrameIndex = 0;
+        uint32_t maxFramesInFlight = 0;
+    };
+
+    struct RendererStatistics
+    {
+        size_t totalDrawCallsCount = 0;
+        size_t totalVertexCount = 0;
+        size_t totalIndexCount = 0;
+
+        [[nodiscard]] size_t getTotalFaceCount() const { return totalIndexCount / 3; }
+        void reset() { memset(this, 0, sizeof(RendererStatistics)); }
+    };
+
     class Renderer
     {
     public:
@@ -181,6 +229,7 @@ namespace LearnVulkanRAII
 
         void setBatchSize(size_t batchSize);
         [[nodiscard]] size_t getBatchSize() const;
+        [[nodiscard]] const RendererStatistics& getStats() const;
 
         [[nodiscard]] const vk::raii::RenderPass& getRenderPass() const;
 
@@ -193,7 +242,7 @@ namespace LearnVulkanRAII
         void createRenderPass();
         void createDescriptorSetLayout();
         void createGraphicsPipeline();
-        void allocateCommandBuffers();
+        void createCommandPools();
         void createSyncObjects();
 
         void allocateLocalTransferSpace();
@@ -202,9 +251,10 @@ namespace LearnVulkanRAII
         void allocateDescriptorSets();
         void createDefaultFramebuffer();
 
-        void recordCommandBuffer(const vk::raii::CommandBuffer& cb, const Framebuffer::Shared& fb) const;
+        void recordCommandBuffer(const Framebuffer::Shared& fb) const;
 
-        void drawFrame();
+        void draw();
+        void presentFrame();
 
     private:
         GraphicsContext::Shared m_graphicsContext;
@@ -212,10 +262,7 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::RenderPass> m_renderPass;
         Utils::Optional<vk::raii::PipelineLayout> m_pipelineLayout;
         Utils::Optional<vk::raii::Pipeline> m_graphicsPipeline;
-        std::vector<vk::raii::CommandBuffer> m_commandBuffers;
-        Utils::Optional<vk::raii::Semaphore> m_imageAvailableSemaphore;
-        Utils::Optional<vk::raii::Semaphore> m_renderFinishedSemaphore;
-        Utils::Optional<vk::raii::Fence> m_inFlightFence;
+        std::vector<RendererCommandPool::Shared> m_commandPools;
         Utils::Optional<vk::raii::DescriptorSetLayout> m_descriptorSetLayout;
         Utils::Optional<vk::raii::DescriptorPool> m_descriptorPool;
         std::vector<vk::raii::DescriptorSet> m_descriptorSet;
@@ -230,6 +277,8 @@ namespace LearnVulkanRAII
 
         BatchAllocationInfo m_allocationBatchInfo;
         LocalTransferSpace m_localTransferSpace;
+        InFlightFrameManager m_inFlightFrameManager;
+        RendererStatistics m_stats;
     };
 } // LearnVulkanRAII
 
