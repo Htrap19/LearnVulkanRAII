@@ -21,7 +21,7 @@ namespace LearnVulkanRAII
 
         auto commandBuffer = allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
 
-        m_rawPrimaryCommandBuffers.push_back(*commandBuffer);
+        m_primaryNextAvailable++;
         return m_primaryCommandBuffers.emplace_back(std::move(commandBuffer));
     }
 
@@ -40,7 +40,7 @@ namespace LearnVulkanRAII
 
         auto commandBuffer = allocateCommandBuffer(vk::CommandBufferLevel::eSecondary);
 
-        m_rawSecondaryCommandBuffers.push_back(*commandBuffer);
+        m_secondaryNextAvailable++;
         return m_secondaryCommandBuffers.emplace_back(std::move(commandBuffer));
     }
 
@@ -48,16 +48,6 @@ namespace LearnVulkanRAII
     {
         ASSERT(commandBufferIndex < m_secondaryCommandBuffers.size(), "Command buffer index out of range!");
         return m_secondaryCommandBuffers[commandBufferIndex];
-    }
-
-    const std::vector<vk::raii::CommandBuffer>& RendererCommandPool::getPrimaryCommandBuffers() const
-    {
-        return m_primaryCommandBuffers;
-    }
-
-    const std::vector<vk::CommandBuffer>& RendererCommandPool::getRawPrimaryCommandBuffers() const
-    {
-        return m_rawPrimaryCommandBuffers;
     }
 
     void RendererCommandPool::reset()

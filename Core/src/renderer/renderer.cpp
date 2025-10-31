@@ -68,7 +68,7 @@ namespace LearnVulkanRAII
 
         draw();
         presentFrame();
-        // m_inFlightFrameManager.nextFrame();
+        m_inFlightFrameManager.nextFrame();
     }
 
     void Renderer::drawMesh(const Mesh& mesh, const Transform& transform)
@@ -130,7 +130,7 @@ namespace LearnVulkanRAII
 
     const vk::raii::RenderPass& Renderer::getRenderPass() const
     {
-        return *m_renderPass;
+        return *m_firstRenderPass;
     }
 
     void Renderer::init()
@@ -157,11 +157,11 @@ namespace LearnVulkanRAII
             {},
             swapchainImageFormat,
             vk::SampleCountFlagBits::e1,
-            vk::AttachmentLoadOp::eLoad,
+            vk::AttachmentLoadOp::eClear,
             vk::AttachmentStoreOp::eStore,
             vk::AttachmentLoadOp::eDontCare,
             vk::AttachmentStoreOp::eDontCare,
-            vk::ImageLayout::ePresentSrcKHR,
+            vk::ImageLayout::eUndefined,
             vk::ImageLayout::ePresentSrcKHR
         };
 
@@ -170,11 +170,11 @@ namespace LearnVulkanRAII
             {},
             depthFormat,
             vk::SampleCountFlagBits::e1,
-            vk::AttachmentLoadOp::eLoad,
+            vk::AttachmentLoadOp::eClear,
             vk::AttachmentStoreOp::eStore,
-            vk::AttachmentLoadOp::eLoad,
+            vk::AttachmentLoadOp::eClear,
             vk::AttachmentStoreOp::eStore,
-            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::ImageLayout::eUndefined,
             vk::ImageLayout::eDepthStencilAttachmentOptimal
         };
 
@@ -213,7 +213,18 @@ namespace LearnVulkanRAII
             &dependency,
         };
 
-        m_renderPass = device.createRenderPass(renderPassInfo);
+        m_firstRenderPass = device.createRenderPass(renderPassInfo);
+
+        colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
+        colorAttachment.initialLayout = vk::ImageLayout::ePresentSrcKHR;
+
+        depthAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
+        depthAttachment.stencilLoadOp = vk::AttachmentLoadOp::eLoad;
+        depthAttachment.initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
+        attachments = {colorAttachment, depthAttachment};
+
+        m_batchRenderPass = device.createRenderPass(renderPassInfo);
     }
 
     void Renderer::createDescriptorSetLayout()
@@ -391,7 +402,7 @@ namespace LearnVulkanRAII
             &colorBlending,
             &dynamicStateCreateInfo,
             **m_pipelineLayout,
-            **m_renderPass,
+            **m_firstRenderPass,
             0,
             vk::Pipeline(),
             -1
@@ -574,14 +585,13 @@ namespace LearnVulkanRAII
             vk::ClearValue( vk::ClearDepthStencilValue(1.0f, 0) )
         };
         m_defaultFramebuffer = SwapchainFramebuffer::makeShared(m_graphicsContext,
-            *m_renderPass,
+            *m_firstRenderPass,
             depthAttachmentInfo);
     }
 
-    void Renderer::recordCommandBuffer(const Framebuffer::Shared& fb) const
+    void Renderer::recordCommands(const vk::raii::CommandBuffer& cb, const Framebuffer::Shared& fb) const
     {
         const auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
-        const auto& cb = m_commandPools[frameContext.imageIndex]->getNextAvailablePrimaryCommandBuffer();
 
         cb.reset();
 
@@ -607,42 +617,22 @@ namespace LearnVulkanRAII
         cb.setViewport(0, viewport);
         cb.setScissor(0, scissor);
 
-        const auto& clearValues = fb->getClearValues();
-
-        vk::RenderPassBeginInfo renderPassInfo{
-            **m_renderPass,
-            *(fb->getBuffer()),
-            { { 0, 0 }, swapchainExtent },
-            0,
-            nullptr
-        };
-
-        cb.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+        vk::RenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.framebuffer = *(fb->getBuffer());
+        renderPassInfo.renderArea = vk::Rect2D{ { 0, 0 }, swapchainExtent };
 
         if (frameContext.drawCallCount == 0) // Very first draw call
         {
-            // Clear the attachments
-            auto& framebufferSpec = fb->getFramebufferSpecification();
-            std::vector<vk::ClearAttachment> clearAttachments{};
-            clearAttachments.reserve(clearValues.size());
-
-            for (size_t i = 0; i < clearValues.size(); ++i)
-            {
-                auto& attachmentInfo = framebufferSpec.attachments[i];
-                clearAttachments.emplace_back(
-                    attachmentInfo.aspectFlags,
-                    static_cast<uint32_t>(i),
-                    attachmentInfo.clearValue
-                );
-            }
-
-            vk::ClearRect clearRect{
-                vk::Rect2D{ {0, 0}, swapchainExtent },
-                0, 1
-            };
-
-            cb.clearAttachments(clearAttachments, clearRect);
+            const auto& clearValues = fb->getClearValues();
+            renderPassInfo.renderPass = **m_firstRenderPass;
+            renderPassInfo.setClearValues(clearValues);
         }
+        else
+        {
+            renderPassInfo.renderPass = **m_batchRenderPass;
+        }
+
+        cb.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_graphicsPipeline);
 
@@ -675,7 +665,8 @@ namespace LearnVulkanRAII
         // Record the commands
         const auto& frameCommandPool = m_commandPools[frameContext.imageIndex];
         auto& fb = framebuffers[frameContext.imageIndex];
-        recordCommandBuffer(fb);
+        const auto& cb = m_commandPools[frameContext.imageIndex]->getNextAvailablePrimaryCommandBuffer();
+        recordCommands(cb, fb);
 
         // Copy from local allocation to the dedicated vk buffers
         void* data = m_vertexBuffer->map(m_localTransferSpace.getCurrentVerticesSizeInBytes(), 0);
@@ -721,10 +712,15 @@ namespace LearnVulkanRAII
         vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
         submitInfo.setWaitDstStageMask(waitStages);
         submitInfo.setWaitSemaphores(waitSemaphore);
-        submitInfo.setCommandBuffers(frameCommandPool->getRawPrimaryCommandBuffers());
+        submitInfo.setCommandBuffers(*cb);
         submitInfo.setSignalSemaphores(signalSemaphore);
 
-        graphicsQueue.submit(submitInfo, **frameContext.inFlightFence);
+        vk::Fence inFlightFence = VK_NULL_HANDLE;
+        if (frameContext.isLastDrawCall)
+        {
+            inFlightFence = **frameContext.inFlightFence;
+        }
+        graphicsQueue.submit(submitInfo, inFlightFence);
 
         // Update the frame context counts
         frameContext.drawCallCount++;

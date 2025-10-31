@@ -33,5 +33,5 @@ void main()
     mat4 model = b_objectMetadataBuffer.metadata[a_objectMetadataIndex].model;
 
     gl_Position = proj * view * model * vec4(a_pos, 1.0);
-    v_color = a_pos;
+    v_color = (a_pos + 1.0) * 0.5;
 }

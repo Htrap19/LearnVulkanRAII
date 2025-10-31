@@ -77,47 +77,67 @@ void AppLayer::onUpdate(Timestep ts)
 {
     CameraViewData cm;
     cm.projection = glm::perspective(glm::radians(45.0f), m_parent->getAspectRatio(), 0.1f, 100.0f);
-    cm.view = glm::lookAt(glm::vec3(0.0f, 3.0f, 5.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    cm.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 8.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     cm.projection[1][1] *= -1; // Invert Y for Vulkan
 
     static float angle = 30.0f;
-    s_cubeMeshTransform.rotate.y += glm::radians(angle * ts);
+    // s_cubeMeshTransform.rotate.y += glm::radians(angle * ts);
 
     m_renderer->beginFrame(cm);
+    // for (uint32_t i = 0; i < 33; i++)
+    // {
+    //     s_cubeMeshTransform.translate.x = glm::sin(glm::radians(ts * static_cast<float>(i)));
+    //     m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+    // }
+
+    // Center
+    s_cubeMeshTransform.translate.x = 0.0f;
+    s_cubeMeshTransform.translate.y = 0.0f;
     m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+
+    for (size_t c = 1; c < 3; c++)
+    {
+        float z = -1.5f;
+        for (size_t i = 0; i < 3; i++)
+        {
+            s_cubeMeshTransform.translate.z = z;
+            z += 1.5f;
+
+            // Right
+            s_cubeMeshTransform.translate.x = 1.5f * c;
+            s_cubeMeshTransform.translate.y = 0.0f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+            // Left
+            s_cubeMeshTransform.translate.x = -1.5f * c;
+            s_cubeMeshTransform.translate.y = 0.0f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+            // Top
+            s_cubeMeshTransform.translate.x = 0.0f * c;
+            s_cubeMeshTransform.translate.y = 1.5f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+            // Bottom
+            s_cubeMeshTransform.translate.x = 0.0f * c;
+            s_cubeMeshTransform.translate.y = -1.5f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+            // Bottom Left
+            s_cubeMeshTransform.translate.x = -1.5f * c;
+            s_cubeMeshTransform.translate.y = -1.5f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+            // Bottom Right
+            s_cubeMeshTransform.translate.x = 1.5f * c;
+            s_cubeMeshTransform.translate.y = -1.5f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+            // Top Right
+            s_cubeMeshTransform.translate.x = 1.5f * c;
+            s_cubeMeshTransform.translate.y = 1.5f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+            // Top Left
+            s_cubeMeshTransform.translate.x = -1.5f * c;
+            s_cubeMeshTransform.translate.y = 1.5f * c;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
+        }
+    }
+
     m_renderer->endFrame();
 }
 

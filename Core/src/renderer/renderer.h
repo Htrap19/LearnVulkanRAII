@@ -251,7 +251,7 @@ namespace LearnVulkanRAII
         void allocateDescriptorSets();
         void createDefaultFramebuffer();
 
-        void recordCommandBuffer(const Framebuffer::Shared& fb) const;
+        void recordCommands(const vk::raii::CommandBuffer& cb, const Framebuffer::Shared& fb) const;
 
         void draw();
         void presentFrame();
@@ -259,7 +259,8 @@ namespace LearnVulkanRAII
     private:
         GraphicsContext::Shared m_graphicsContext;
 
-        Utils::Optional<vk::raii::RenderPass> m_renderPass;
+        Utils::Optional<vk::raii::RenderPass> m_firstRenderPass;
+        Utils::Optional<vk::raii::RenderPass> m_batchRenderPass;
         Utils::Optional<vk::raii::PipelineLayout> m_pipelineLayout;
         Utils::Optional<vk::raii::Pipeline> m_graphicsPipeline;
         std::vector<RendererCommandPool::Shared> m_commandPools;
