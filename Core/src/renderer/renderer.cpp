@@ -31,10 +31,13 @@ namespace LearnVulkanRAII
         auto& swapchain = m_graphicsContext->getSwapchain();
 
         auto& framebuffers = framebuffer->getBuffers();
-        ASSERT(m_commandPools.size() == framebuffers.size(), "Framebuffer seems incompatible!");
+        ASSERT(m_commandBuffers.size() == framebuffers.size(), "Framebuffer seems incompatible!");
         m_framebuffer = framebuffer;
 
         auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
+        auto [result, imageIndex] =
+            swapchain.acquireNextImage(UINT64_MAX, **frameContext.imageAvailableSemaphore);
+
         auto _ = device.waitForFences(**frameContext.inFlightFence, VK_TRUE, UINT64_MAX);
         device.resetFences(**frameContext.inFlightFence);
 
@@ -44,16 +47,10 @@ namespace LearnVulkanRAII
         // reset frame context counts
         frameContext.resetCounts();
 
-        auto [result, imageIndex] =
-            swapchain.acquireNextImage(UINT64_MAX, **frameContext.imageAvailableSemaphore);
-
         ASSERT(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR,
             "Failed to acquire swapchain image!");
 
         frameContext.imageIndex = imageIndex;
-
-        // reset the command buffers of this frame
-        m_commandPools[imageIndex]->reset();
 
         // Copy the per-frame camera view data
         void* data = m_cameraViewDataBuffer->map();
@@ -138,7 +135,8 @@ namespace LearnVulkanRAII
         createRenderPass();
         createDescriptorSetLayout();
         createGraphicsPipeline();
-        createCommandPools();
+        createGraphicsCommandPool();
+        allocateCommandBuffers();
         createSyncObjects();
 
         allocateLocalTransferSpace();
@@ -411,18 +409,31 @@ namespace LearnVulkanRAII
         m_graphicsPipeline = device.createGraphicsPipeline(VK_NULL_HANDLE, graphicsPipelineCreateInfo);
     }
 
-    void Renderer::createCommandPools()
+    void Renderer::createGraphicsCommandPool()
     {
-        m_commandPools.clear();
+        auto& device = m_graphicsContext->getDevice();
+        auto queueFamilyIndices = m_graphicsContext->getQueueFamilyIndices();
 
-        // Create renderer command pool per swapchain image
+        vk::CommandPoolCreateInfo commandPoolCreateInfo{
+            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            static_cast<uint32_t>(queueFamilyIndices.graphicsQueueFamilyIndex)
+        };
+
+        m_graphicsCommandPool = device.createCommandPool(commandPoolCreateInfo);
+    }
+
+    void Renderer::allocateCommandBuffers()
+    {
+        auto& device = m_graphicsContext->getDevice();
         auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
-        m_commandPools.reserve(swapchainImageViews.size());
 
-        for (size_t i = 0; i < swapchainImageViews.size(); ++i)
-        {
-            m_commandPools.emplace_back(RendererCommandPool::makeShared(m_graphicsContext));
-        }
+        vk::CommandBufferAllocateInfo allocateInfo{
+            **m_graphicsCommandPool,
+            vk::CommandBufferLevel::ePrimary,
+            static_cast<uint32_t>(swapchainImageViews.size())
+        };
+
+        m_commandBuffers = device.allocateCommandBuffers(allocateInfo);
     }
 
     void Renderer::createSyncObjects()
@@ -436,17 +447,10 @@ namespace LearnVulkanRAII
 
         for (size_t i = 0; i < swapchainImageViews.size(); i++)
         {
-            auto& frame = m_inFlightFrameManager.frames.emplace_back();
-            frame.imageAvailableSemaphore = device.createSemaphore({});
-            frame.renderFinishedSemaphore = device.createSemaphore({});
-            frame.inFlightFence = device.createFence(fenceCreateInfo);
-
-            // TODO: This needs to be properly handled, because we can have n number of draw calls in a single frame.
-            frame.batchSemaphores.reserve(m_allocationBatchInfo.modelCount);
-            for (size_t j = 0; j < m_allocationBatchInfo.modelCount; j++)
-            {
-                frame.batchSemaphores.emplace_back(device, vk::SemaphoreCreateInfo{});
-            }
+            auto& frameContext = m_inFlightFrameManager.frames.emplace_back();
+            frameContext.imageAvailableSemaphore = device.createSemaphore({});
+            frameContext.renderFinishedSemaphore = device.createSemaphore({});
+            frameContext.inFlightFence = device.createFence(fenceCreateInfo);
         }
     }
 
@@ -658,14 +662,22 @@ namespace LearnVulkanRAII
 
     void Renderer::draw()
     {
-        auto& graphicsQueue = m_graphicsContext->getGraphicsQueue();
         auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
+        auto& graphicsQueue = m_graphicsContext->getGraphicsQueue();
         auto& framebuffers = m_framebuffer->getBuffers();
 
+        // Wait for the previous batch(if any) to finish in order to re-use the buffers
+        auto& device = m_graphicsContext->getDevice();
+
+        if (frameContext.drawCallCount != 0) // Wait on fence if not the first draw call
+        {
+            auto _ = device.waitForFences(**frameContext.inFlightFence, VK_TRUE, UINT64_MAX);
+            device.resetFences(**frameContext.inFlightFence);
+        }
+
         // Record the commands
-        const auto& frameCommandPool = m_commandPools[frameContext.imageIndex];
         auto& fb = framebuffers[frameContext.imageIndex];
-        const auto& cb = m_commandPools[frameContext.imageIndex]->getNextAvailablePrimaryCommandBuffer();
+        const auto& cb = m_commandBuffers[frameContext.imageIndex];
         recordCommands(cb, fb);
 
         // Copy from local allocation to the dedicated vk buffers
@@ -687,40 +699,21 @@ namespace LearnVulkanRAII
 
         vk::SubmitInfo submitInfo{};
 
-        vk::Semaphore waitSemaphore, signalSemaphore;
-        if (frameContext.drawCallCount == 0 && frameContext.isLastDrawCall) // First and last draw call
-        {
-            waitSemaphore = **frameContext.imageAvailableSemaphore;
-            signalSemaphore = **frameContext.renderFinishedSemaphore;
-        }
-        else if (frameContext.drawCallCount == 0) // Very first draw call but not the last
-        {
-            waitSemaphore = **frameContext.imageAvailableSemaphore;
-            signalSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount];
-        }
-        else if (frameContext.isLastDrawCall) // Very last draw call
-        {
-            waitSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount - 1];
-            signalSemaphore = **frameContext.renderFinishedSemaphore;
-        }
-        else
-        {
-            waitSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount - 1];
-            signalSemaphore = *frameContext.batchSemaphores[frameContext.drawCallCount];;
-        }
-
         vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
         submitInfo.setWaitDstStageMask(waitStages);
-        submitInfo.setWaitSemaphores(waitSemaphore);
-        submitInfo.setCommandBuffers(*cb);
-        submitInfo.setSignalSemaphores(signalSemaphore);
-
-        vk::Fence inFlightFence = VK_NULL_HANDLE;
-        if (frameContext.isLastDrawCall)
+        submitInfo.waitSemaphoreCount = 0;
+        if (frameContext.drawCallCount == 0) // First draw call, wait for imageAvailable
         {
-            inFlightFence = **frameContext.inFlightFence;
+            submitInfo.setWaitSemaphores(**frameContext.imageAvailableSemaphore);
         }
-        graphicsQueue.submit(submitInfo, inFlightFence);
+        submitInfo.setCommandBuffers(*cb);
+        submitInfo.signalSemaphoreCount = 0;
+        if (frameContext.isLastDrawCall) // Last draw call, signal the renderFinished
+        {
+            submitInfo.setSignalSemaphores(**frameContext.renderFinishedSemaphore);
+        }
+
+        graphicsQueue.submit(submitInfo, **frameContext.inFlightFence);
 
         // Update the frame context counts
         frameContext.drawCallCount++;

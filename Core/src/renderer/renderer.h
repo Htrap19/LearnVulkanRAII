@@ -12,7 +12,6 @@
 
 #include "framebuffer.h"
 #include "buffer.h"
-#include "renderercommandpool.h"
 
 #include <vulkan/vulkan_raii.hpp>
 
@@ -170,7 +169,6 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::Semaphore> imageAvailableSemaphore;
         Utils::Optional<vk::raii::Semaphore> renderFinishedSemaphore;
         Utils::Optional<vk::raii::Fence> inFlightFence;
-        std::vector<vk::raii::Semaphore> batchSemaphores;
 
         size_t drawCallCount = 0;
         bool isLastDrawCall = false;
@@ -242,7 +240,8 @@ namespace LearnVulkanRAII
         void createRenderPass();
         void createDescriptorSetLayout();
         void createGraphicsPipeline();
-        void createCommandPools();
+        void createGraphicsCommandPool();
+        void allocateCommandBuffers();
         void createSyncObjects();
 
         void allocateLocalTransferSpace();
@@ -263,7 +262,8 @@ namespace LearnVulkanRAII
         Utils::Optional<vk::raii::RenderPass> m_batchRenderPass;
         Utils::Optional<vk::raii::PipelineLayout> m_pipelineLayout;
         Utils::Optional<vk::raii::Pipeline> m_graphicsPipeline;
-        std::vector<RendererCommandPool::Shared> m_commandPools;
+        Utils::Optional<vk::raii::CommandPool> m_graphicsCommandPool;
+        std::vector<vk::raii::CommandBuffer> m_commandBuffers;
         Utils::Optional<vk::raii::DescriptorSetLayout> m_descriptorSetLayout;
         Utils::Optional<vk::raii::DescriptorPool> m_descriptorPool;
         std::vector<vk::raii::DescriptorSet> m_descriptorSet;

@@ -77,7 +77,7 @@ void AppLayer::onUpdate(Timestep ts)
 {
     CameraViewData cm;
     cm.projection = glm::perspective(glm::radians(45.0f), m_parent->getAspectRatio(), 0.1f, 100.0f);
-    cm.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 8.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    cm.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 14.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     cm.projection[1][1] *= -1; // Invert Y for Vulkan
 
     static float angle = 30.0f;
@@ -95,7 +95,7 @@ void AppLayer::onUpdate(Timestep ts)
     s_cubeMeshTransform.translate.y = 0.0f;
     m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
 
-    for (size_t c = 1; c < 3; c++)
+    for (size_t c = 1; c < 4; c++)
     {
         float z = -1.5f;
         for (size_t i = 0; i < 3; i++)
