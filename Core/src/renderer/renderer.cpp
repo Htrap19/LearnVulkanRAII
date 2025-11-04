@@ -53,9 +53,9 @@ namespace LearnVulkanRAII
         frameContext.imageIndex = imageIndex;
 
         // Copy the per-frame camera view data
-        void* data = m_cameraViewDataBuffer->map();
+        void* data = m_cameraViewDataBuffers[imageIndex]->map();
         std::memcpy(data, &cameraData, sizeof(CameraViewData));
-        m_cameraViewDataBuffer->unmap();
+        m_cameraViewDataBuffers[imageIndex]->unmap();
     }
 
     void Renderer::endFrame()
@@ -462,66 +462,84 @@ namespace LearnVulkanRAII
 
     void Renderer::createBuffers()
     {
-        // vertex buffer
-        vk::DeviceSize bufferSize = m_allocationBatchInfo.getVerticesSizeInBytes();
-        m_vertexBuffer = Buffer::create(
-            m_graphicsContext,
-            bufferSize,
-            vk::BufferUsageFlagBits::eVertexBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
 
-        // index buffer
-        bufferSize = m_allocationBatchInfo.getIndicesSizeInBytes();
-        m_indexBuffer = Buffer::create(
-            m_graphicsContext,
-            bufferSize,
-            vk::BufferUsageFlagBits::eIndexBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        m_vertexBuffers.clear();
+        m_indexBuffers.clear();
+        m_cameraViewDataBuffers.clear();
+        m_objectMetadataBuffers.clear();
+        m_internalVertexBuffers.clear();
 
-        // camera view data uniform buffer
-        bufferSize = sizeof(CameraViewData);
-        m_cameraViewDataBuffer = Buffer::create(
-            m_graphicsContext,
-            bufferSize,
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        m_vertexBuffers.resize(swapchainImageViews.size());
+        m_indexBuffers.resize(swapchainImageViews.size());
+        m_cameraViewDataBuffers.resize(swapchainImageViews.size());
+        m_objectMetadataBuffers.resize(swapchainImageViews.size());
+        m_internalVertexBuffers.resize(swapchainImageViews.size());
 
-        // object metadata storage buffer
-        bufferSize = sizeof(ObjectMetadata) * m_allocationBatchInfo.modelCount;
-        m_objectMetadataBuffer = Buffer::create(
-            m_graphicsContext,
-            bufferSize,
-            vk::BufferUsageFlagBits::eStorageBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        for (size_t i = 0; i < swapchainImageViews.size(); i++)
+        {
+            // vertex buffer
+            vk::DeviceSize bufferSize = m_allocationBatchInfo.getVerticesSizeInBytes();
+            m_vertexBuffers[i] = Buffer::create(
+                m_graphicsContext,
+                bufferSize,
+                vk::BufferUsageFlagBits::eVertexBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
-        // internal vertex buffer
-        bufferSize = m_allocationBatchInfo.getInternalVertexSizeInBytes();
-        m_internalVertexBuffer = Buffer::create(
-            m_graphicsContext,
-            bufferSize,
-            vk::BufferUsageFlagBits::eVertexBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+            // index buffer
+            bufferSize = m_allocationBatchInfo.getIndicesSizeInBytes();
+            m_indexBuffers[i] = Buffer::create(
+                m_graphicsContext,
+                bufferSize,
+                vk::BufferUsageFlagBits::eIndexBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+            // camera view data uniform buffer
+            bufferSize = sizeof(CameraViewData);
+            m_cameraViewDataBuffers[i] = Buffer::create(
+                m_graphicsContext,
+                bufferSize,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+            // object metadata storage buffer
+            bufferSize = sizeof(ObjectMetadata) * m_allocationBatchInfo.modelCount;
+            m_objectMetadataBuffers[i] = Buffer::create(
+                m_graphicsContext,
+                bufferSize,
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+            // internal vertex buffer
+            bufferSize = m_allocationBatchInfo.getInternalVertexSizeInBytes();
+            m_internalVertexBuffers[i] = Buffer::create(
+                m_graphicsContext,
+                bufferSize,
+                vk::BufferUsageFlagBits::eVertexBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        }
     }
 
     void Renderer::createDescriptorPool()
     {
         auto& device = m_graphicsContext->getDevice();
+        auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
 
         vk::DescriptorPoolSize cameraViewDataPoolSize{
             vk::DescriptorType::eUniformBuffer,
-            1,
+            static_cast<uint32_t>(m_cameraViewDataBuffers.size()),
         };
 
         vk::DescriptorPoolSize objectMetadataPoolSize{
             vk::DescriptorType::eStorageBuffer,
-            1
+            static_cast<uint32_t>(m_objectMetadataBuffers.size())
         };
 
         std::array poolSizes{ cameraViewDataPoolSize, objectMetadataPoolSize };
 
         vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo{
             vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-            1,
+            static_cast<uint32_t>(swapchainImageViews.size()),
             static_cast<uint32_t>(poolSizes.size()),
             poolSizes.data()
         };
@@ -532,51 +550,56 @@ namespace LearnVulkanRAII
     void Renderer::allocateDescriptorSets()
     {
         auto& device = m_graphicsContext->getDevice();
+        auto& swapchainImageViews = m_graphicsContext->getSwapchainImageViews();
 
+        std::vector descriptorSetLayouts(swapchainImageViews.size(), **m_descriptorSetLayout);
         vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo{
             **m_descriptorPool,
-            1,
-            &**m_descriptorSetLayout,
+            static_cast<uint32_t>(swapchainImageViews.size()),
+            descriptorSetLayouts.data(),
         };
 
-        m_descriptorSet = device.allocateDescriptorSets(descriptorSetAllocateInfo);
-        ASSERT(m_descriptorSet.size(), "Failed to allocate descriptor sets!");
+        m_descriptorSets = device.allocateDescriptorSets(descriptorSetAllocateInfo);
+        ASSERT(m_descriptorSets.size(), "Failed to allocate descriptor sets!");
 
-        vk::DescriptorBufferInfo cameraViewDataBufferInfo{
-            *m_cameraViewDataBuffer->getNativeBuffer(),
-            0,
-            sizeof(CameraViewData)
-        };
+        for (size_t i = 0; i < swapchainImageViews.size(); i++)
+        {
+            vk::DescriptorBufferInfo cameraViewDataBufferInfo{
+                *m_cameraViewDataBuffers[i]->getNativeBuffer(),
+                0,
+                sizeof(CameraViewData)
+            };
 
-        vk::WriteDescriptorSet cameraViewDataWriteDescriptorSet{
-            *m_descriptorSet[0],
-            0,
-            0,
-            1,
-            vk::DescriptorType::eUniformBuffer,
-            nullptr,
-            &cameraViewDataBufferInfo
-        };
+            vk::WriteDescriptorSet cameraViewDataWriteDescriptorSet{
+                *m_descriptorSets[i],
+                0,
+                0,
+                1,
+                vk::DescriptorType::eUniformBuffer,
+                nullptr,
+                &cameraViewDataBufferInfo
+            };
 
-        vk::DescriptorBufferInfo objectMetadataBufferInfo{
-            *m_objectMetadataBuffer->getNativeBuffer(),
-            0,
-            sizeof(ObjectMetadata) * m_allocationBatchInfo.modelCount
-        };
+            vk::DescriptorBufferInfo objectMetadataBufferInfo{
+                *m_objectMetadataBuffers[i]->getNativeBuffer(),
+                0,
+                sizeof(ObjectMetadata) * m_allocationBatchInfo.modelCount
+            };
 
-        vk::WriteDescriptorSet objectMetadataWriteDescriptorSet{
-            *m_descriptorSet[0],
-            1,
-            0,
-            1,
-            vk::DescriptorType::eStorageBuffer,
-            nullptr,
-            &objectMetadataBufferInfo
-        };
+            vk::WriteDescriptorSet objectMetadataWriteDescriptorSet{
+                *m_descriptorSets[i],
+                1,
+                0,
+                1,
+                vk::DescriptorType::eStorageBuffer,
+                nullptr,
+                &objectMetadataBufferInfo
+            };
 
-        std::array descriptorWrites{ objectMetadataWriteDescriptorSet, cameraViewDataWriteDescriptorSet };
+            std::array descriptorWrites{ objectMetadataWriteDescriptorSet, cameraViewDataWriteDescriptorSet };
 
-        device.updateDescriptorSets(descriptorWrites, nullptr);
+            device.updateDescriptorSets(descriptorWrites, nullptr);
+        }
     }
 
     void Renderer::createDefaultFramebuffer()
@@ -640,17 +663,20 @@ namespace LearnVulkanRAII
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_graphicsPipeline);
 
-        vk::Buffer vertexBuffers[] = { *m_vertexBuffer->getNativeBuffer(), *m_internalVertexBuffer->getNativeBuffer() };
+        vk::Buffer vertexBuffers[] = {
+            *m_vertexBuffers[frameContext.imageIndex]->getNativeBuffer(),
+            *m_internalVertexBuffers[frameContext.imageIndex]->getNativeBuffer()
+        };
         vk::DeviceSize offsets[] = { 0, 0 };
         cb.bindVertexBuffers(0, vertexBuffers, offsets);
 
-        cb.bindIndexBuffer(*m_indexBuffer->getNativeBuffer(), 0, vk::IndexType::eUint32);
+        cb.bindIndexBuffer(*m_indexBuffers[frameContext.imageIndex]->getNativeBuffer(), 0, vk::IndexType::eUint32);
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             **m_pipelineLayout,
             0,
-            *m_descriptorSet[0],
+            *m_descriptorSets[frameContext.imageIndex],
             nullptr);
 
         cb.drawIndexed(static_cast<uint32_t>(m_localTransferSpace.currentIndexCount),
@@ -663,6 +689,7 @@ namespace LearnVulkanRAII
     void Renderer::draw()
     {
         auto& frameContext = m_inFlightFrameManager.getCurrentFrameContext();
+        uint32_t imageIndex = frameContext.imageIndex;
         auto& graphicsQueue = m_graphicsContext->getGraphicsQueue();
         auto& framebuffers = m_framebuffer->getBuffers();
 
@@ -676,26 +703,26 @@ namespace LearnVulkanRAII
         }
 
         // Record the commands
-        auto& fb = framebuffers[frameContext.imageIndex];
-        const auto& cb = m_commandBuffers[frameContext.imageIndex];
+        auto& fb = framebuffers[imageIndex];
+        const auto& cb = m_commandBuffers[imageIndex];
         recordCommands(cb, fb);
 
         // Copy from local allocation to the dedicated vk buffers
-        void* data = m_vertexBuffer->map(m_localTransferSpace.getCurrentVerticesSizeInBytes(), 0);
+        void* data = m_vertexBuffers[imageIndex]->map(m_localTransferSpace.getCurrentVerticesSizeInBytes(), 0);
         memcpy(data, m_localTransferSpace.vertices, m_localTransferSpace.getCurrentVerticesSizeInBytes());
-        m_vertexBuffer->unmap();
+        m_vertexBuffers[imageIndex]->unmap();
 
-        data = m_indexBuffer->map(m_localTransferSpace.getCurrentIndicesSizeInBytes(), 0);
+        data = m_indexBuffers[imageIndex]->map(m_localTransferSpace.getCurrentIndicesSizeInBytes(), 0);
         memcpy(data, m_localTransferSpace.indices, m_localTransferSpace.getCurrentIndicesSizeInBytes());
-        m_indexBuffer->unmap();
+        m_indexBuffers[imageIndex]->unmap();
 
-        data = m_objectMetadataBuffer->map(m_localTransferSpace.getCurrentObjectMetadataSizeInBytes(), 0);
+        data = m_objectMetadataBuffers[imageIndex]->map(m_localTransferSpace.getCurrentObjectMetadataSizeInBytes(), 0);
         memcpy(data, m_localTransferSpace.objectMetadata, m_localTransferSpace.getCurrentObjectMetadataSizeInBytes());
-        m_objectMetadataBuffer->unmap();
+        m_objectMetadataBuffers[imageIndex]->unmap();
 
-        data = m_internalVertexBuffer->map(m_localTransferSpace.getCurrentIntervalVerticesSizeInBytes(), 0);
+        data = m_internalVertexBuffers[imageIndex]->map(m_localTransferSpace.getCurrentIntervalVerticesSizeInBytes(), 0);
         memcpy(data, m_localTransferSpace.internalVertices, m_localTransferSpace.getCurrentIntervalVerticesSizeInBytes());
-        m_internalVertexBuffer->unmap();
+        m_internalVertexBuffers[imageIndex]->unmap();
 
         vk::SubmitInfo submitInfo{};
 

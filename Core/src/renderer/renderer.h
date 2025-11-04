@@ -266,15 +266,16 @@ namespace LearnVulkanRAII
         std::vector<vk::raii::CommandBuffer> m_commandBuffers;
         Utils::Optional<vk::raii::DescriptorSetLayout> m_descriptorSetLayout;
         Utils::Optional<vk::raii::DescriptorPool> m_descriptorPool;
-        std::vector<vk::raii::DescriptorSet> m_descriptorSet;
+        std::vector<vk::raii::DescriptorSet> m_descriptorSets;
 
         SwapchainFramebuffer::Shared m_defaultFramebuffer;
         SwapchainFramebuffer::Shared m_framebuffer;
-        Buffer::Shared m_vertexBuffer;
-        Buffer::Shared m_indexBuffer;
-        Buffer::Shared m_cameraViewDataBuffer;
-        Buffer::Shared m_objectMetadataBuffer;
-        Buffer::Shared m_internalVertexBuffer;
+
+        std::vector<Buffer::Shared> m_vertexBuffers;
+        std::vector<Buffer::Shared> m_indexBuffers;
+        std::vector<Buffer::Shared> m_cameraViewDataBuffers;
+        std::vector<Buffer::Shared> m_objectMetadataBuffers;
+        std::vector<Buffer::Shared> m_internalVertexBuffers;
 
         BatchAllocationInfo m_allocationBatchInfo;
         LocalTransferSpace m_localTransferSpace;

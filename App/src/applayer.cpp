@@ -80,20 +80,7 @@ void AppLayer::onUpdate(Timestep ts)
     cm.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 14.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     cm.projection[1][1] *= -1; // Invert Y for Vulkan
 
-    static float angle = 30.0f;
-    // s_cubeMeshTransform.rotate.y += glm::radians(angle * ts);
-
     m_renderer->beginFrame(cm);
-    // for (uint32_t i = 0; i < 33; i++)
-    // {
-    //     s_cubeMeshTransform.translate.x = glm::sin(glm::radians(ts * static_cast<float>(i)));
-    //     m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
-    // }
-
-    // Center
-    s_cubeMeshTransform.translate.x = 0.0f;
-    s_cubeMeshTransform.translate.y = 0.0f;
-    m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
 
     for (size_t c = 1; c < 4; c++)
     {
@@ -103,6 +90,10 @@ void AppLayer::onUpdate(Timestep ts)
             s_cubeMeshTransform.translate.z = z;
             z += 1.5f;
 
+            // Center
+            s_cubeMeshTransform.translate.x = 0.0f;
+            s_cubeMeshTransform.translate.y = 0.0f;
+            m_renderer->drawMesh(s_cubeMesh, s_cubeMeshTransform);
             // Right
             s_cubeMeshTransform.translate.x = 1.5f * c;
             s_cubeMeshTransform.translate.y = 0.0f * c;
